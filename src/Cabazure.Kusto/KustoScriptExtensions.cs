@@ -22,7 +22,7 @@ public static class KustoScriptExtensions
     public static IEnumerable<KeyValuePair<string, string>> GetCslParameters(
         this IKustoScript script)
         => script.GetParameters().Select(p
-            => KeyValuePair.Create(
+            => new KeyValuePair<string, string>(
                 p.Key,
                 GetCslValue(p.Value)));
 

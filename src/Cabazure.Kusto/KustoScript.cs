@@ -22,7 +22,7 @@ public abstract record KustoScript
     }
 
     public IDictionary<string, object> GetParameters()
-        => new Dictionary<string, object>(GetPropertyValues());
+        => GetPropertyValues().ToDictionary(k => k.Key, v => v.Value);
 
     private IEnumerable<KeyValuePair<string, object>> GetPropertyValues()
     {
@@ -33,11 +33,11 @@ public abstract record KustoScript
             if (property.GetValue(this) is { } value)
             {
                 var name = ToCamelCase(property.Name);
-                yield return KeyValuePair.Create(name, value);
+                yield return new KeyValuePair<string, object>(name, value);
             }
         }
     }
 
     private static string ToCamelCase(string value)
-        => char.ToLowerInvariant(value[0]) + value[1..];
+        => char.ToLowerInvariant(value[0]) + value.Substring(1);
 }

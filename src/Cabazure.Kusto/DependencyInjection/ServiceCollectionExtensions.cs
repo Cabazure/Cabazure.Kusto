@@ -8,7 +8,7 @@ namespace Microsoft.Extensions.DependencyInjection;
 
 public static class ServiceCollectionExtensions
 {
-    public static IServiceCollection ConfigureCabazureKusto(
+    public static IServiceCollection AddCabazureKusto(
        this IServiceCollection services,
        Action<CabazureKustoOptions>? options = null)
     {
