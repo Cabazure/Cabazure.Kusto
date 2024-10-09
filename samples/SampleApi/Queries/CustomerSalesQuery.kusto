@@ -1,0 +1,7 @@
+﻿Customers
+| join kind=inner SalesFact on CustomerKey
+| extend CustomerName = strcat(FirstName, ' ', LastName)
+| summarize 
+    SalesAmount = round(sum(SalesAmount), 2),
+    TotalCost = round(sum(TotalCost), 2)
+  by CustomerKey, CustomerName

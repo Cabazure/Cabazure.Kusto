@@ -7,8 +7,22 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="Queries\CustomerSalesQuery.kusto" />
+    <None Remove="Queries\CustomersQuery.kusto" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Queries\CustomersQuery.kusto" />
+    <EmbeddedResource Include="Queries\CustomerSalesQuery.kusto" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="8.0.7" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.4.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Cabazure.Kusto\Cabazure.Kusto.csproj" />
   </ItemGroup>
 
 </Project>

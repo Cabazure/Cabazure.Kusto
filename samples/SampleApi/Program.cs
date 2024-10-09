@@ -1,7 +1,16 @@
+using Azure.Identity;
+using Cabazure.Kusto;
+using SampleApi.Queries;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+builder.Services.ConfigureCabazureKusto(o =>
+{
+    o.HostAddress = "https://help.kusto.windows.net/";
+    o.DatabaseName = "ContosoSales";
+    o.Credential = new DefaultAzureCredential();
+});
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -16,25 +25,15 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
+app.MapGet("/customers", (IKustoProcessor processor, CancellationToken cancellationToken)
+        => processor.ExecuteAsync(new CustomersQuery(), cancellationToken))
+    .WithName("GetCustomers")
+    .WithOpenApi();
 
-app.MapGet("/weatherforecast", () =>
-{
-    var forecast = Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast")
-.WithOpenApi();
+app.MapGet("/customer-sales", (IKustoProcessor processor, CancellationToken cancellationToken)
+        => processor.ExecuteAsync(new CustomerSalesQuery(), cancellationToken))
+    .WithName("GetCustomerSales")
+    .WithOpenApi();
 
 app.Run();
 

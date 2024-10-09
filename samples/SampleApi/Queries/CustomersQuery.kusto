@@ -1,0 +1,4 @@
+﻿Customers
+| project
+    CustomerKey,
+    CustomerName = strcat(FirstName, ' ', LastName)
