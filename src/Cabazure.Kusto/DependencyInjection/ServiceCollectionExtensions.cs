@@ -9,8 +9,8 @@ namespace Microsoft.Extensions.DependencyInjection;
 public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddCabazureKusto(
-       this IServiceCollection services,
-       Action<CabazureKustoOptions>? options = null)
+        this IServiceCollection services,
+        Action<CabazureKustoOptions>? options = null)
     {
         if (options != null)
         {
@@ -20,11 +20,11 @@ public static class ServiceCollectionExtensions
         }
 
         return services
-               .AddSingleton(s => KustoClientFactory.CreateCslQueryProvider(s.GetKustoConnection()))
-               .AddSingleton(s => KustoClientFactory.CreateCslAdminProvider(s.GetKustoConnection()))
-               .AddSingleton<IQueryIdProvider, QueryIdProvider>()
-               .AddSingleton<IScriptHandlerFactory, ScriptHandlerFactory>()
-               .AddSingleton<IKustoProcessor, KustoProcessor>();
+            .AddSingleton(s => KustoClientFactory.CreateCslQueryProvider(s.GetKustoConnection()))
+            .AddSingleton(s => KustoClientFactory.CreateCslAdminProvider(s.GetKustoConnection()))
+            .AddSingleton<IQueryIdProvider, QueryIdProvider>()
+            .AddSingleton<IScriptHandlerFactory, ScriptHandlerFactory>()
+            .AddSingleton<IKustoProcessor, KustoProcessor>();
     }
 
     private static KustoConnectionStringBuilder GetKustoConnection(
