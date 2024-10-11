@@ -3,4 +3,6 @@ using SampleApi.Contracts;
 
 namespace SampleApi.Queries;
 
-public record CustomersQuery : KustoQuery<Customer>;
+public record CustomersQuery(
+    int? CustomerId = null)
+    : KustoQuery<Customer>;

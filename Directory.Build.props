@@ -5,14 +5,14 @@
   <PropertyGroup Label="Assembly Naming">
     <Company>Cabazure</Company>
     <Authors>Cabazure</Authors>
-    <Description>Library for creating .NET Clients for your AspNetCore REST APIs, using Source Generators directed by attributes.</Description>
+    <Description>Library for handling and executing Kusto scripts against an Azure Data Explorer cluster.</Description>
     <NeutralLanguage>en</NeutralLanguage>
     <DefaultLanguage>en-US</DefaultLanguage>
     <DebugSymbols>true</DebugSymbols>
     <DebugType>embedded</DebugType>
     <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
     <RepositoryType>git</RepositoryType>
-    <RepositoryUrl>https://github.com/Cabazure/Cabazure.Client</RepositoryUrl>
+    <RepositoryUrl>https://github.com/Cabazure/Cabazure.Kusto</RepositoryUrl>
   </PropertyGroup>
 
   <!-- Treat warnings as errors are always on when building in release -->

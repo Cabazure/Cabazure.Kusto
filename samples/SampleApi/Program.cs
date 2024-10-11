@@ -1,5 +1,6 @@
 using Azure.Identity;
 using Cabazure.Kusto;
+using Microsoft.AspNetCore.Mvc;
 using SampleApi.Queries;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -24,9 +25,38 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-app.MapGet("/customers", (IKustoProcessor processor, CancellationToken cancellationToken)
-        => processor.ExecuteAsync(new CustomersQuery(), cancellationToken))
-    .WithName("GetCustomers")
+app.MapGet(
+    "/customers", 
+    async static (
+        [FromHeader(Name = "x-client-session-id")] string? sessionId,
+        [FromHeader(Name = "x-max-item-count")] int? maxItemCount,
+        [FromHeader(Name = "x-continuation-token")] string? continuationToken,
+        IKustoProcessor processor, 
+        CancellationToken cancellationToken)
+        => await processor.ExecuteAsync(
+            new CustomersQuery(),
+            sessionId,
+            maxItemCount ?? 100,
+            continuationToken,
+            cancellationToken))
+    .WithName("ListCustomers")
+    .WithOpenApi();
+
+app.MapGet(
+    "/customers/{customerId}",
+    async static (
+        int customerId,
+        IKustoProcessor processor,
+        CancellationToken cancellationToken)
+        => await processor.ExecuteAsync(
+            new CustomersQuery(
+                customerId),
+            cancellationToken) switch
+        {
+            [{ } customer] => Results.Ok(customer),
+            _ => Results.NotFound(),
+        })
+    .WithName("GetCustomer")
     .WithOpenApi();
 
 app.MapGet("/customer-sales", (IKustoProcessor processor, CancellationToken cancellationToken)

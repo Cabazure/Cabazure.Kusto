@@ -106,3 +106,7 @@ app.MapGet(
 The `maxItemCount` specifies how many items to return for each page. Each page is returned with a `continuationToken` that can be specified to fetch the next page.
 
 The optional `sessionId` can be provided to optimize the use of storage on the ADX. If the same `sessionId` is specified for two calls they will share the underlying storage for pagination results.
+
+## Sample
+
+Please see the [SampleApi project](https://github.com/Cabazure/Cabazure.Kusto/tree/main/samples/SampleApi), for an example of how Cabazure.Kusto can be setup to query the "ContosoSales" database of the ADX sample cluster.

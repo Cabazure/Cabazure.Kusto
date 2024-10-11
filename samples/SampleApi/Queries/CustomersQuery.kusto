@@ -1,4 +1,18 @@
-﻿Customers
+﻿declare query_parameters (
+    customerId:long = long(null)
+);
+Customers
+| where isnull(customerId) or customerId == CustomerKey
 | project
     CustomerKey,
-    CustomerName = strcat(FirstName, ' ', LastName)
+    FirstName,
+    LastName,
+    CompanyName,
+    CityName,
+    StateProvinceName,
+    RegionCountryName,
+    ContinentName,
+    Gender,
+    MaritalStatus,
+    Education,
+    Occupation
