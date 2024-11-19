@@ -68,6 +68,22 @@ declare query_parameters (
 ;
 Customers
 | where type == customerType
+| project
+    customerId,
+    name,
+    type,
+    lastUpdated = timestamp,
+```
+
+The query result is mapped to the specified output contract, my matching parameter names like this:
+
+```csharp
+// file: Customer.cs
+public record Customer(
+  string CustomerId,
+  string Name,
+  CustomerType Type,
+  DateTimeOffset LastUpdated);
 ```
 
 ### 3. Execute a Kusto query
