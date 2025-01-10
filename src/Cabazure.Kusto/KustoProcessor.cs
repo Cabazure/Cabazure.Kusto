@@ -3,21 +3,35 @@ using Cabazure.Kusto.Processing;
 namespace Cabazure.Kusto;
 
 public class KustoProcessor(
-    IScriptHandlerFactory factory)
+    IScriptHandlerFactory factory,
+    string? connectionName,
+    string? databaseName)
     : IKustoProcessor
 {
+    public string? ConnectionName { get; }
+        = connectionName;
+
+    public string? DatabaseName { get; }
+        = databaseName;
+
     public async Task ExecuteAsync(
         IKustoCommand command,
         CancellationToken cancellationToken)
         => await factory
-            .Create(command)
+            .Create(
+                command,
+                ConnectionName,
+                DatabaseName)
             .ExecuteAsync(cancellationToken);
 
     public async Task<T?> ExecuteAsync<T>(
         IKustoQuery<T> query,
         CancellationToken cancellationToken)
         => await factory
-            .Create(query)
+            .Create(
+                query,
+                ConnectionName,
+                DatabaseName)
             .ExecuteAsync(cancellationToken);
 
     public async Task<PagedResult<T>?> ExecuteAsync<T>(
@@ -31,6 +45,8 @@ public class KustoProcessor(
                 query,
                 sessionId,
                 maxItemCount,
-                continuationToken)
+                continuationToken,
+                ConnectionName,
+                DatabaseName)
             .ExecuteAsync(cancellationToken);
 }

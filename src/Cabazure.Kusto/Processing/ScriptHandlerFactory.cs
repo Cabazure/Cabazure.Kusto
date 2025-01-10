@@ -6,31 +6,45 @@ public class ScriptHandlerFactory(
     : IScriptHandlerFactory
 {
     public IScriptHandler Create(
-        IKustoCommand command)
+        IKustoCommand command,
+        string? connectionName = null,
+        string? databaseName = null)
         => new SimpleCommandHandler(
-            clientProvider.GetAdminClient(),
+            clientProvider.GetAdminClient(
+                connectionName,
+                databaseName),
             command);
 
     public IScriptHandler<T> Create<T>(
-        IKustoQuery<T> query)
+        IKustoQuery<T> query,
+        string? connectionName = null,
+        string? databaseName = null)
         => new SimpleQueryHandler<T>(
-            clientProvider.GetQueryClient(),
+            clientProvider.GetQueryClient(
+                connectionName,
+                databaseName),
             query);
 
     public IScriptHandler<PagedResult<T>> Create<T>(
         IKustoQuery<IReadOnlyList<T>> query,
         string? sessionId,
         int maxItemCount,
-        string? continuationToken)
+        string? continuationToken,
+        string? connectionName = null,
+        string? databaseName = null)
         => continuationToken != null
          ? new ExistingStoredQueryHandler<T>(
-            clientProvider.GetQueryClient(),
+            clientProvider.GetQueryClient(
+                connectionName,
+                databaseName),
             query,
             maxItemCount,
             continuationToken)
          : new NewStoredQueryHandler<T>(
             queryIdProvider,
-            clientProvider.GetAdminClient(),
+            clientProvider.GetAdminClient(
+                connectionName,
+                databaseName),
             query,
             sessionId,
             maxItemCount);
