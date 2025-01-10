@@ -1,23 +1,20 @@
-using Kusto.Data.Common;
-
 namespace Cabazure.Kusto.Processing;
 
 public class ScriptHandlerFactory(
     IQueryIdProvider queryIdProvider,
-    ICslQueryProvider queryProvider,
-    ICslAdminProvider adminProvider) 
+    IKustoClientProvider clientProvider)
     : IScriptHandlerFactory
 {
     public IScriptHandler Create(
         IKustoCommand command)
         => new SimpleCommandHandler(
-            adminProvider,
+            clientProvider.GetAdminClient(),
             command);
 
     public IScriptHandler<T> Create<T>(
         IKustoQuery<T> query)
         => new SimpleQueryHandler<T>(
-            queryProvider,
+            clientProvider.GetQueryClient(),
             query);
 
     public IScriptHandler<PagedResult<T>> Create<T>(
@@ -27,13 +24,13 @@ public class ScriptHandlerFactory(
         string? continuationToken)
         => continuationToken != null
          ? new ExistingStoredQueryHandler<T>(
-            queryProvider,
+            clientProvider.GetQueryClient(),
             query,
             maxItemCount,
             continuationToken)
          : new NewStoredQueryHandler<T>(
             queryIdProvider,
-            adminProvider,
+            clientProvider.GetAdminClient(),
             query,
             sessionId,
             maxItemCount);

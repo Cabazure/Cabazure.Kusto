@@ -7,7 +7,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddCabazureKusto(o =>
 {
-    o.HostAddress = "https://help.kusto.windows.net/";
+    o.HostAddress = new Uri("https://help.kusto.windows.net/");
     o.DatabaseName = "ContosoSales";
     o.Credential = new DefaultAzureCredential();
 });
@@ -26,12 +26,12 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 app.MapGet(
-    "/customers", 
+    "/customers",
     async static (
         [FromHeader(Name = "x-client-session-id")] string? sessionId,
         [FromHeader(Name = "x-max-item-count")] int? maxItemCount,
         [FromHeader(Name = "x-continuation-token")] string? continuationToken,
-        IKustoProcessor processor, 
+        IKustoProcessor processor,
         CancellationToken cancellationToken)
         => await processor.ExecuteAsync(
             new CustomersQuery(),

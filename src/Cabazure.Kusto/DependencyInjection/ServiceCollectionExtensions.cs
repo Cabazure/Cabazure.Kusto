@@ -1,7 +1,6 @@
 ﻿using Cabazure.Kusto;
 using Cabazure.Kusto.Processing;
 using Kusto.Data;
-using Kusto.Data.Net.Client;
 using Microsoft.Extensions.Options;
 
 namespace Microsoft.Extensions.DependencyInjection;
@@ -20,8 +19,7 @@ public static class ServiceCollectionExtensions
         }
 
         return services
-            .AddSingleton(s => KustoClientFactory.CreateCslQueryProvider(s.GetKustoConnection()))
-            .AddSingleton(s => KustoClientFactory.CreateCslAdminProvider(s.GetKustoConnection()))
+            .AddSingleton<IKustoClientProvider, KustoClientProvider>()
             .AddSingleton<IQueryIdProvider, QueryIdProvider>()
             .AddSingleton<IScriptHandlerFactory, ScriptHandlerFactory>()
             .AddSingleton<IKustoProcessor, KustoProcessor>();
