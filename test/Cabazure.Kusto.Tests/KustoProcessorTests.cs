@@ -7,9 +7,24 @@ public class KustoProcessorTests
     public record T();
 
     [Theory, AutoNSubstituteData]
+    public void Can_Specify_Connection_And_Database(
+        IScriptHandlerFactory factory,
+        string connectionName,
+        string databaseName)
+    {
+        var sut = new KustoProcessor(
+            factory,
+            connectionName,
+            databaseName);
+
+        sut.ConnectionName.Should().Be(connectionName);
+        sut.DatabaseName.Should().Be(databaseName);
+    }
+
+    [Theory, AutoNSubstituteData]
     public async Task ExecuteAsync_Will_Create_Handler(
         [Frozen] IScriptHandlerFactory factory,
-        KustoProcessor sut,
+        [Modest] KustoProcessor sut,
         IKustoQuery<T> query,
         CancellationToken cancellationToken)
     {
@@ -17,20 +32,40 @@ public class KustoProcessorTests
 
         _ = factory
             .Received(1)
-            .Create(query);
+            .Create(
+                query,
+                sut.ConnectionName,
+                sut.DatabaseName);
+    }
+
+    [Theory, AutoNSubstituteData]
+    public async Task ExecuteAsync_Will_Create_Handler_With_Connection_And_Database(
+        [Frozen] IScriptHandlerFactory factory,
+        [Greedy] KustoProcessor sut,
+        IKustoQuery<T> query,
+        CancellationToken cancellationToken)
+    {
+        await sut.ExecuteAsync(query, cancellationToken);
+
+        _ = factory
+            .Received(1)
+            .Create(
+                query,
+                sut.ConnectionName,
+                sut.DatabaseName);
     }
 
     [Theory, AutoNSubstituteData]
     public async Task ExecuteAsync_Will_Return_Result_From_Handler(
         [Frozen] IScriptHandlerFactory factory,
-        KustoProcessor sut,
+        [Modest] KustoProcessor sut,
         IKustoQuery<T> query,
         IScriptHandler<T> handler,
         T queryResult,
         CancellationToken cancellationToken)
     {
         factory
-            .Create<T>(default)
+            .Create<T>(default, default, default)
             .ReturnsForAnyArgs(handler);
 
         handler
@@ -46,7 +81,7 @@ public class KustoProcessorTests
     [Theory, AutoNSubstituteData]
     public async Task ExecuteAsync_Will_Create_Handler_For_PagedResult(
         [Frozen] IScriptHandlerFactory factory,
-        KustoProcessor sut,
+        [Modest] KustoProcessor sut,
         IKustoQuery<IReadOnlyList<T>> query,
         string sessionId,
         int maxItemCount,
@@ -66,13 +101,15 @@ public class KustoProcessorTests
                 query,
                 sessionId,
                 maxItemCount,
-                continuationToken);
+                continuationToken,
+                sut.ConnectionName,
+                sut.DatabaseName);
     }
 
     [Theory, AutoNSubstituteData]
     public async Task ExecuteAsync_Will_Return_PagedResult_From_Handler(
         [Frozen] IScriptHandlerFactory factory,
-        KustoProcessor sut,
+        [Modest] KustoProcessor sut,
         IKustoQuery<IReadOnlyList<T>> query,
         string sessionId,
         int maxItemCount,
@@ -82,7 +119,7 @@ public class KustoProcessorTests
         CancellationToken cancellationToken)
     {
         factory
-            .Create<T>(default, default, default, default)
+            .Create<T>(default, default, default, default, default, default)
             .ReturnsForAnyArgs(handler);
 
         handler

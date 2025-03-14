@@ -11,7 +11,7 @@ public abstract record KustoScript
         type = GetType();
     }
 
-    public string GetQueryText()
+    public virtual string GetQueryText()
     {
         var resourcePath = $"{type.FullName}.kusto";
         using var stream = type.Assembly.GetManifestResourceStream(resourcePath)
@@ -21,9 +21,12 @@ public abstract record KustoScript
         return reader.ReadToEnd();
     }
 
-    public IDictionary<string, object> GetParameters()
+    public virtual IDictionary<string, object> GetParameters()
         => GetPropertyValues().ToDictionary(k => k.Key, v => v.Value);
 
+    protected static string ToCamelCase(string value)
+        => char.ToLowerInvariant(value[0]) + value.Substring(1);
+    
     private IEnumerable<KeyValuePair<string, object>> GetPropertyValues()
     {
         var properties = type.GetProperties(
@@ -37,7 +40,4 @@ public abstract record KustoScript
             }
         }
     }
-
-    private static string ToCamelCase(string value)
-        => char.ToLowerInvariant(value[0]) + value.Substring(1);
 }

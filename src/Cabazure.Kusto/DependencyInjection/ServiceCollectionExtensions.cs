@@ -1,10 +1,9 @@
 ﻿using Cabazure.Kusto;
 using Cabazure.Kusto.Processing;
-using Kusto.Data;
-using Kusto.Data.Net.Client;
-using Microsoft.Extensions.Options;
 
+#pragma warning disable IDE0130 // Namespace does not match folder structure
 namespace Microsoft.Extensions.DependencyInjection;
+#pragma warning restore IDE0130 // Namespace does not match folder structure
 
 public static class ServiceCollectionExtensions
 {
@@ -20,24 +19,10 @@ public static class ServiceCollectionExtensions
         }
 
         return services
-            .AddSingleton(s => KustoClientFactory.CreateCslQueryProvider(s.GetKustoConnection()))
-            .AddSingleton(s => KustoClientFactory.CreateCslAdminProvider(s.GetKustoConnection()))
+            .AddSingleton<IKustoClientProvider, KustoClientProvider>()
             .AddSingleton<IQueryIdProvider, QueryIdProvider>()
             .AddSingleton<IScriptHandlerFactory, ScriptHandlerFactory>()
-            .AddSingleton<IKustoProcessor, KustoProcessor>();
-    }
-
-    private static KustoConnectionStringBuilder GetKustoConnection(
-        this IServiceProvider services)
-    {
-        var options = services.GetRequiredService<IOptions<CabazureKustoOptions>>().Value;
-
-        var connectionString = new KustoConnectionStringBuilder(
-            options.HostAddress,
-            options.DatabaseName);
-
-        return connectionString
-            .WithAadAzureTokenCredentialsAuthentication(
-                options.Credential);
+            .AddSingleton<IKustoProcessorFactory, KustoProcessorFactory>()
+            .AddSingleton(s => s.GetRequiredService<IKustoProcessorFactory>().Create());
     }
 }

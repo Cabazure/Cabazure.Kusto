@@ -1,39 +1,50 @@
-using Kusto.Data.Common;
-
 namespace Cabazure.Kusto.Processing;
 
 public class ScriptHandlerFactory(
     IQueryIdProvider queryIdProvider,
-    ICslQueryProvider queryProvider,
-    ICslAdminProvider adminProvider) 
+    IKustoClientProvider clientProvider)
     : IScriptHandlerFactory
 {
     public IScriptHandler Create(
-        IKustoCommand command)
+        IKustoCommand command,
+        string? connectionName = null,
+        string? databaseName = null)
         => new SimpleCommandHandler(
-            adminProvider,
+            clientProvider.GetAdminClient(
+                connectionName,
+                databaseName),
             command);
 
     public IScriptHandler<T> Create<T>(
-        IKustoQuery<T> query)
+        IKustoQuery<T> query,
+        string? connectionName = null,
+        string? databaseName = null)
         => new SimpleQueryHandler<T>(
-            queryProvider,
+            clientProvider.GetQueryClient(
+                connectionName,
+                databaseName),
             query);
 
     public IScriptHandler<PagedResult<T>> Create<T>(
         IKustoQuery<IReadOnlyList<T>> query,
         string? sessionId,
         int maxItemCount,
-        string? continuationToken)
+        string? continuationToken,
+        string? connectionName = null,
+        string? databaseName = null)
         => continuationToken != null
          ? new ExistingStoredQueryHandler<T>(
-            queryProvider,
+            clientProvider.GetQueryClient(
+                connectionName,
+                databaseName),
             query,
             maxItemCount,
             continuationToken)
          : new NewStoredQueryHandler<T>(
             queryIdProvider,
-            adminProvider,
+            clientProvider.GetAdminClient(
+                connectionName,
+                databaseName),
             query,
             sessionId,
             maxItemCount);
