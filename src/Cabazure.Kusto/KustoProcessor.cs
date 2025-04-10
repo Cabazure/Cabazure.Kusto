@@ -37,16 +37,20 @@ public class KustoProcessor(
     public async Task<PagedResult<T>?> ExecuteAsync<T>(
         IKustoQuery<IReadOnlyList<T>> query,
         string? sessionId,
-        int maxItemCount,
+        int? maxItemCount,
         string? continuationToken,
         CancellationToken cancellationToken)
-        => await factory
+        => maxItemCount is { } count
+         ? await factory
             .Create(
                 query,
                 sessionId,
-                maxItemCount,
+                count,
                 continuationToken,
                 ConnectionName,
                 DatabaseName)
-            .ExecuteAsync(cancellationToken);
+            .ExecuteAsync(cancellationToken)
+         : new PagedResult<T>(
+             Items: await ExecuteAsync(query, cancellationToken) ?? [],
+             ContinuationToken: null);
 }

@@ -13,7 +13,7 @@ public interface IKustoProcessor
     Task<PagedResult<T>?> ExecuteAsync<T>(
         IKustoQuery<IReadOnlyList<T>> query,
         string? sessionId,
-        int maxItemCount,
+        int? maxItemCount,
         string? continuationToken,
         CancellationToken cancellationToken);
 }
