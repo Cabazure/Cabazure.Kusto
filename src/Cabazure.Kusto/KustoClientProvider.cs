@@ -43,6 +43,11 @@ public class KustoClientProvider(
             { HostAddress: { } host, DatabaseName: { } db, Credential: { } cred }
                 => new KustoConnectionStringBuilder(host.AbsoluteUri, clientKey.DatabaseName ?? db)
                     .WithAadAzureTokenCredentialsAuthentication(cred),
+            { ConnectionString: { } cs, Credential: { } cred }
+                => new KustoConnectionStringBuilder(cs)
+                    .WithAadAzureTokenCredentialsAuthentication(cred),
+            { ConnectionString: { } cs }
+                => new KustoConnectionStringBuilder(cs),
             _ => throw new InvalidOperationException(
                 $"Missing configuration for kusto connection `{clientKey.ConnectionName}`"),
         };

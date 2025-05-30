@@ -26,7 +26,7 @@ jobs:
       - name: ⚙️ Setup dotnet 8.0.x
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x'
+          dotnet-version: '9.0.x'
 
       - name: 🧹 Clean
         run: dotnet clean -c Release && dotnet nuget locals all --clear
