@@ -43,6 +43,11 @@ public class KustoClientProvider(
             { HostAddress: { } host, DatabaseName: { } db, Credential: { } cred }
                 => new KustoConnectionStringBuilder(host.AbsoluteUri, clientKey.DatabaseName ?? db)
                     .WithAadAzureTokenCredentialsAuthentication(cred),
+            { ConnectionString: { } cs, DatabaseName: { } db, Credential: { } cred }
+                => new KustoConnectionStringBuilder($"{cs};Database={db}")
+                    .WithAadAzureTokenCredentialsAuthentication(cred),
+            { ConnectionString: { } cs, DatabaseName: { } db }
+                => new KustoConnectionStringBuilder($"{cs};Database={db}"),
             { ConnectionString: { } cs, Credential: { } cred }
                 => new KustoConnectionStringBuilder(cs)
                     .WithAadAzureTokenCredentialsAuthentication(cred),
