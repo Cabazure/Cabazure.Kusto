@@ -17,6 +17,15 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{5F686EBC-7
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Cabazure.Kusto.Tests", "test\Cabazure.Kusto.Tests\Cabazure.Kusto.Tests.csproj", "{20258623-1B63-4373-B2C9-A60CD31FC8CB}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".github", ".github", "{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "workflows", "workflows", "{B84BF904-78D9-45B7-929E-4D076C420DF9}"
+	ProjectSection(SolutionItems) = preProject
+		.github\workflows\ci.yml = .github\workflows\ci.yml
+		.github\workflows\release-preview.yml = .github\workflows\release-preview.yml
+		.github\workflows\release.yml = .github\workflows\release.yml
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -44,6 +53,7 @@ Global
 		{086AC1D0-9766-4624-856D-8E8FF72594F6} = {44A09817-3ADE-4876-8D12-494F90BE072B}
 		{ACDE752B-3989-49C4-B05B-301FD7F14E64} = {8674E2FB-6BA6-4CCA-ABEA-C687A9A8445F}
 		{20258623-1B63-4373-B2C9-A60CD31FC8CB} = {5F686EBC-7D3E-4571-9B89-2F0A3953F5FD}
+		{B84BF904-78D9-45B7-929E-4D076C420DF9} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {BA76E902-4A52-4DC8-A8C7-C995A4EEBF36}

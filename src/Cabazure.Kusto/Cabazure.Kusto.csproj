@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>netstandard2.0;net8.0</TargetFrameworks>
+    <TargetFrameworks>netstandard2.0;net9.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
@@ -25,10 +25,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Azure.Kusto.Data" Version="12.2.7" />
-    <PackageReference Include="System.Formats.Asn1" Version="8.0.1" />
-    <PackageReference Include="System.Text.Json" Version="8.0.5" />
-    <PackageReference Include="Microsoft.Extensions.Options" Version="8.0.2" />
+    <PackageReference Include="Microsoft.Azure.Kusto.Data" Version="13.0.2" />
+    <PackageReference Include="System.Formats.Asn1" Version="9.0.5" />
+    <PackageReference Include="System.Text.Json" Version="9.0.5" />
+    <PackageReference Include="Microsoft.Extensions.Options" Version="9.0.5" />
   </ItemGroup>
 
 </Project>
