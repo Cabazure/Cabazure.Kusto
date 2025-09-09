@@ -2,6 +2,7 @@
 | join kind=inner SalesFact on CustomerKey
 | extend CustomerName = strcat(FirstName, ' ', LastName)
 | summarize 
-    SalesAmount = round(sum(SalesAmount), 2),
-    TotalCost = round(sum(TotalCost), 2)
+    SalesAmount = todecimal(round(sum(SalesAmount), 2)),
+    TotalCost = todecimal(round(sum(TotalCost), 2))
   by CustomerKey, CustomerName
+| take 100

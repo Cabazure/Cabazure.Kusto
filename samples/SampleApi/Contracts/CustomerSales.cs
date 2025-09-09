@@ -3,5 +3,5 @@
 public record CustomerSales(
     int CustomerKey,
     string CustomerName,
-    float SalesAmount,
-    float TotalCost);
+    decimal SalesAmount,
+    decimal TotalCost);
