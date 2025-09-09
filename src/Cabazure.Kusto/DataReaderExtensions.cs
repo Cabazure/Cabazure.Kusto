@@ -1,4 +1,5 @@
 using System.Data;
+using System.Data.SqlTypes;
 using Kusto.Cloud.Platform.Data;
 using Newtonsoft.Json;
 
@@ -8,7 +9,7 @@ public static class DataReaderExtensions
 {
     private static readonly JsonSerializer Serializer = JsonSerializer.CreateDefault(new()
     {
-        Converters = { new NewtonsoftObjectConverter() },
+        Converters = { new NewtonsoftObjectConverter(), new NewtonsoftDecimalConverter() },
     });
 
     public static T[] ReadObjects<T>(
