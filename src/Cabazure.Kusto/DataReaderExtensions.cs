@@ -1,6 +1,6 @@
+using System.Buffers;
 using System.Data;
 using System.Data.SqlTypes;
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Newtonsoft.Json.Linq;
@@ -11,10 +11,11 @@ public static class DataReaderExtensions
 {
     private const int MxDecimalPrecision = 28;
     private const int MxDecimalScale = 27;
-    private static readonly JsonSerializerOptions JsonOption = new()
+    private static readonly JsonSerializerOptions DefaultJsonOption = new()
     {
         Converters = { new JsonStringEnumConverter() },
         PropertyNameCaseInsensitive = true,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         NumberHandling = JsonNumberHandling.AllowReadingFromString,
     };
 
@@ -25,40 +26,63 @@ public static class DataReaderExtensions
          : [];
 
     public static T[] ReadObjects<T>(
-        this IDataReader reader)
+        this IDataReader reader,
+        JsonSerializerOptions? options = null)
     {
+        options ??= DefaultJsonOption;
+
+        var buffer = new ArrayBufferWriter<byte>();
+        using var doc = new Utf8JsonWriter(buffer);
         var results = new List<T>();
         while (reader.Read())
         {
-            var dict = new Dictionary<string, object?>();
+            buffer.Clear();
+            doc.Reset(buffer);
+
+            doc.WriteStartObject();
+
             for (int i = 0; i < reader.FieldCount; i++)
             {
-                dict[reader.GetName(i)] = reader.GetValue(i) switch
+                var value = reader.GetValue(i);
+
+                var name = reader.GetName(i);
+                if (options.PropertyNamingPolicy is { } np)
                 {
-                    DBNull => null,
-                    JToken jToken => jToken.ToJsonElement(),
-                    SqlDecimal sd => sd.ToDecimal(),
-                    var value => value,
-                };
+                    name = np.ConvertName(name);
+                }
+
+                doc.WritePropertyName(name);
+
+                if (value is JToken jtoken)
+                {
+                    doc.WriteRawValue(
+                        jtoken.ToString(
+                            Newtonsoft.Json.Formatting.None));
+                }
+                else if (value is DBNull)
+                {
+                    doc.WriteNullValue();
+                }
+                else if (value is SqlDecimal sd)
+                {
+                    doc.WriteNumberValue(sd.ToDecimal());
+                }
+                else
+                {
+                    JsonSerializer.Serialize(doc, value, options);
+                }
             }
 
-            string json = JsonSerializer.Serialize(dict, JsonOption);
+            doc.WriteEndObject();
+            doc.Flush();
 
-            results.Add(JsonSerializer.Deserialize<T>(json, JsonOption)!);
+            results.Add(JsonSerializer.Deserialize<T>(buffer.WrittenSpan, options)!);
         }
 
         return [.. results];
     }
 
-    private static JsonElement ToJsonElement(this JToken token)
-    {
-        var utf8 = Encoding.UTF8.GetBytes(token.ToString());
-        var jsonReader = new Utf8JsonReader(utf8);
-
-        return JsonElement.ParseValue(ref jsonReader);
-    }
-
-    private static decimal? ToDecimal(this SqlDecimal sd)
+    private static decimal ToDecimal(this SqlDecimal sd)
     {
         if (sd.Precision > MxDecimalPrecision)
         {
