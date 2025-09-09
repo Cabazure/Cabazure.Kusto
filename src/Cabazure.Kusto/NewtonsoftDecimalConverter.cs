@@ -7,7 +7,8 @@ namespace Cabazure.Kusto;
 public sealed class NewtonsoftDecimalConverter : JsonConverter
 {
     public override bool CanConvert(Type objectType)
-        => objectType == typeof(decimal);
+        => objectType == typeof(decimal)
+        || objectType == typeof(decimal?);
 
     public override object? ReadJson(
         JsonReader reader,
