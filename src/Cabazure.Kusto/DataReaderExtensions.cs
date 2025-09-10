@@ -9,8 +9,8 @@ namespace Cabazure.Kusto;
 
 public static class DataReaderExtensions
 {
-    private const int MxDecimalPrecision = 28;
-    private const int MxDecimalScale = 27;
+    const int DotNetDecimalMaxPrecision = 29;
+    const int DotNetDecimalMaxScale = 28;
     private static readonly JsonSerializerOptions DefaultJsonOption = new()
     {
         Converters = { new JsonStringEnumConverter() },
@@ -82,13 +82,25 @@ public static class DataReaderExtensions
         return [.. results];
     }
 
-    private static decimal ToDecimal(this SqlDecimal sd)
+    private static decimal ToDecimal(this SqlDecimal sqlDecimal)
     {
-        if (sd.Precision > MxDecimalPrecision)
+        var integerDigits = sqlDecimal.Precision - sqlDecimal.Scale;
+        if (integerDigits > DotNetDecimalMaxPrecision)
         {
-            sd = SqlDecimal.ConvertToPrecScale(sd, MxDecimalPrecision, MxDecimalScale);
+            throw new OverflowException(
+                $"Integer part ({integerDigits} digits) exceeds decimal capacity");
         }
 
-        return sd.Value;
+        var maxAvailableScale = DotNetDecimalMaxPrecision - integerDigits;
+        var targetScale = Math.Min(sqlDecimal.Scale, Math.Min(DotNetDecimalMaxScale, maxAvailableScale));
+        var targetPrecision = Math.Min(sqlDecimal.Precision, integerDigits + targetScale);
+
+        if (targetPrecision != sqlDecimal.Precision || targetScale != sqlDecimal.Scale)
+        {
+            var safeDecimal = SqlDecimal.ConvertToPrecScale(sqlDecimal, targetPrecision, targetScale);
+            return (decimal)safeDecimal;
+        }
+
+        return (decimal)sqlDecimal;
     }
 }
