@@ -24,6 +24,7 @@ public class DataReaderExtensionsTests
         dataReader.GetName(default).ReturnsForAnyArgs(c => fieldNames[c.Arg<int>()]);
         dataReader.Read().Returns(c => ++index < data.Count);
         dataReader.GetValues(default).ReturnsForAnyArgs(c => c.Arg<object[]>().CopyFrom(values[index], 0));
+        dataReader.GetValue(default).ReturnsForAnyArgs(c => values[index][c.Arg<int>()]);
 
         DataReaderExtensions
             .ReadObjects<TestObject>(dataReader)
@@ -48,6 +49,7 @@ public class DataReaderExtensionsTests
         dataReader.GetName(default).ReturnsForAnyArgs(c => fieldNames[c.Arg<int>()]);
         dataReader.Read().Returns(c => ++index < data.Count);
         dataReader.GetValues(default).ReturnsForAnyArgs(c => c.Arg<object[]>().CopyFrom(values[index], 0));
+        dataReader.GetValue(default).ReturnsForAnyArgs(c => values[index][c.Arg<int>()]);
         dataReader.NextResult().Returns(true);
 
         DataReaderExtensions
