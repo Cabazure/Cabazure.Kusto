@@ -9,8 +9,8 @@ namespace Cabazure.Kusto;
 
 public static class DataReaderExtensions
 {
-    const int DotNetDecimalMaxPrecision = 29;
-    const int DotNetDecimalMaxScale = 28;
+    const int DotNetDecimalMaxPrecision = 28;
+    const int DotNetDecimalMaxScale = 27;
     private static readonly JsonSerializerOptions DefaultJsonOption = new()
     {
         Converters = { new JsonStringEnumConverter() },
