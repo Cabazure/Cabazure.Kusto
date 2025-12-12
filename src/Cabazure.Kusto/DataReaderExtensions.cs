@@ -43,13 +43,17 @@ public static class DataReaderExtensions
 
             for (int i = 0; i < reader.FieldCount; i++)
             {
-                var value = reader.GetValue(i);
-
                 var name = reader.GetName(i);
                 if (options.PropertyNamingPolicy is { } np)
                 {
                     name = np.ConvertName(name);
                 }
+
+                var value = reader.GetDataTypeName(i) switch
+                {
+                    nameof(SByte) => reader.GetBoolean(i),
+                    _ => reader.GetValue(i)
+                };
 
                 doc.WritePropertyName(name);
 
