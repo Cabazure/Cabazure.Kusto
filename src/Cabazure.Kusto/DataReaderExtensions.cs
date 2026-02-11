@@ -1,6 +1,7 @@
 using System.Buffers;
 using System.Data;
 using System.Data.SqlTypes;
+using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Newtonsoft.Json.Linq;
@@ -11,9 +12,14 @@ public static class DataReaderExtensions
 {
     const int DotNetDecimalMaxPrecision = 28;
     const int DotNetDecimalMaxScale = 27;
-    private static readonly JsonSerializerOptions DefaultJsonOption = new()
+
+    public static readonly JsonSerializerOptions DefaultJsonOption = new()
     {
-        Converters = { new JsonStringEnumConverter() },
+        Converters =
+        {
+            new JsonStringEnumConverter(),
+            new DateOnlyJsonConverter(),
+        },
         PropertyNameCaseInsensitive = true,
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         NumberHandling = JsonNumberHandling.AllowReadingFromString,
@@ -106,5 +112,38 @@ public static class DataReaderExtensions
         }
 
         return (decimal)sqlDecimal;
+    }
+
+    public class DateOnlyJsonConverter : JsonConverter<DateOnly>
+    {
+        public override DateOnly Read(
+            ref Utf8JsonReader reader,
+            Type typeToConvert,
+            JsonSerializerOptions options)
+        {
+            var strValue = reader.GetString()
+                ?? throw new JsonException(
+                    $"Unable to convert null to {nameof(DateOnly)}.");
+
+            if (DateOnly.TryParse(strValue, CultureInfo.InvariantCulture, out var dateOnly))
+            {
+                return dateOnly;
+            }
+
+            if (DateTimeOffset.TryParse(strValue, CultureInfo.InvariantCulture, out var dateTimeOffset))
+            {
+                return DateOnly.FromDateTime(dateTimeOffset.DateTime);
+            }
+
+            throw new JsonException(
+                $"Unable to convert \"{strValue}\" to {nameof(DateOnly)}.");
+        }
+
+        public override void Write(
+            Utf8JsonWriter writer,
+            DateOnly value,
+            JsonSerializerOptions options)
+            => writer.WriteStringValue(
+                value.ToString());
     }
 }
