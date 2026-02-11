@@ -39,8 +39,7 @@ app.MapGet(
             maxItemCount ?? 100,
             continuationToken,
             cancellationToken))
-    .WithName("ListCustomers")
-    .WithOpenApi();
+    .WithName("ListCustomers");
 
 app.MapGet(
     "/customers/{customerId}",
@@ -56,12 +55,10 @@ app.MapGet(
             [{ } customer] => Results.Ok(customer),
             _ => Results.NotFound(),
         })
-    .WithName("GetCustomer")
-    .WithOpenApi();
+    .WithName("GetCustomer");
 
 app.MapGet("/customer-sales", (IKustoProcessor processor, CancellationToken cancellationToken)
         => processor.ExecuteAsync(new CustomerSalesQuery(), cancellationToken))
-    .WithName("GetCustomerSales")
-    .WithOpenApi();
+    .WithName("GetCustomerSales");
 
 app.Run();

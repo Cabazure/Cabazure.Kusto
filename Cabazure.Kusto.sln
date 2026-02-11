@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.0.31903.59
+# Visual Studio Version 18
+VisualStudioVersion = 18.4.11506.43 insiders
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "samples", "samples", "{AF1039A2-AA3B-4C4C-B61F-DD8DB04F7082}"
 EndProject
@@ -14,6 +14,9 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Cabazure.Kusto", "src\Cabazure.Kusto\Cabazure.Kusto.csproj", "{ACDE752B-3989-49C4-B05B-301FD7F14E64}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{5F686EBC-7D3E-4571-9B89-2F0A3953F5FD}"
+	ProjectSection(SolutionItems) = preProject
+		test\.editorconfig = test\.editorconfig
+	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Cabazure.Kusto.Tests", "test\Cabazure.Kusto.Tests\Cabazure.Kusto.Tests.csproj", "{20258623-1B63-4373-B2C9-A60CD31FC8CB}"
 EndProject
