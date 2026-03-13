@@ -10,7 +10,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Using Include="Atc.Test" />
+    <Using Include="Cabazure.Test" />
     <Using Include="AutoFixture" />
     <Using Include="AutoFixture.Xunit3" />
     <Using Include="FluentAssertions" />
@@ -27,7 +27,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Atc.Test" Version="2.0.17" />
+    <PackageReference Include="Cabazure.Test" Version="1.0.1" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
     <PackageReference Include="xunit.v3" Version="3.2.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">
