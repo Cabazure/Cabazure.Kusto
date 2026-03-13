@@ -14,3 +14,5 @@ Parker owns core implementation work in the library.
 
 - `KustoProcessor`, `KustoProcessorFactory`, `KustoClientProvider`, and the processing handlers are central implementation surfaces.
 - Changes should follow the repository's small-type, file-scoped namespace, explicit-type style.
+- The Cabazure.Kusto test project migrated from `Atc.Test` to `Cabazure.Test` with a csproj-only change because the existing theory attributes already match Cabazure.Test's root namespace.
+- `dotnet test .\Cabazure.Kusto.sln --no-restore --verbosity minimal` is a fast, sufficient validation path for this repo after test-infrastructure changes.
