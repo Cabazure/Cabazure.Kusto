@@ -7,9 +7,12 @@ on:
     branches:
       - main
     paths-ignore:
-      - '.github/coveragereport/**'
+      - '.github/**'
+      - '!.github/workflows/ci.yml'
       - 'docs/**'
       - '*.md'
+      - '.squad/**'
+
   pull_request:
     branches:
       - main
