@@ -12,5 +12,16 @@ Lambert owns testing, regression analysis, and reviewer gates focused on quality
 
 ## Learnings
 
-- The test stack uses xUnit v3, AutoFixture, NSubstitute, FluentAssertions, and Atc.Test.
+- The test stack uses xUnit v3, AutoFixture, NSubstitute, FluentAssertions, and Cabazure.Test (migrated from Atc.Test).
 - High-value regression areas include `DataReaderExtensions`, `KustoScriptExtensions`, and the stored query handlers.
+- The sibling `Cabazure.Test` repo ships its migration guide as `MIGRATING.md`, not `MIGRATION.md`.
+- `Cabazure.Kusto.Tests` does not use the risky Atc.Test-only APIs from the migration guide (`WaitForCall*`, `ReceivedCallWithArgument`, `AddTimeout`, `HasProperties`, `AutoRegister`, or `JsonElementCustomization`), so this migration stays mostly mechanical.
+- Infrastructure migration validated via full `dotnet test .\Cabazure.Kusto.sln --no-restore --verbosity minimal` suite; all 73 tests passing confirms no hidden breaks in namespace/package resolution for `FixtureFactory`, `AutoNSubstituteData`, and `MemberAutoNSubstituteData`.
+
+## Recent Work (2026-03-13)
+
+Completed risk analysis and review gates for Cabazure.Test migration:
+- Scanned all test files for risky Atc.Test-only APIs; **none found**
+- Classified as low-risk infrastructure-only change
+- Documented regression-prone areas and validation approach
+- Approved Parker's migration work; ready for team consensus and merge
