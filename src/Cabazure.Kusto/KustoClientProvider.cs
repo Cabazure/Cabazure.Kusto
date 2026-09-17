@@ -38,24 +38,28 @@ public class KustoClientProvider(
 
     private KustoConnectionStringBuilder GetConnectionString(
         ClientKey clientKey)
-        => monitor.Get(clientKey.ConnectionName) switch
+    {
+        var options = monitor.Get(clientKey.ConnectionName);
+
+        var builder = options switch
         {
-            { HostAddress: { } host, DatabaseName: { } db, Credential: { } cred }
-                => new KustoConnectionStringBuilder(host.AbsoluteUri, clientKey.DatabaseName ?? db)
-                    .WithAadAzureTokenCredentialsAuthentication(cred),
-            { ConnectionString: { } cs, DatabaseName: { } db, Credential: { } cred }
-                => new KustoConnectionStringBuilder($"{cs};Database={db}")
-                    .WithAadAzureTokenCredentialsAuthentication(cred),
-            { ConnectionString: { } cs, DatabaseName: { } db }
-                => new KustoConnectionStringBuilder($"{cs};Database={db}"),
-            { ConnectionString: { } cs, Credential: { } cred }
-                => new KustoConnectionStringBuilder(cs)
-                    .WithAadAzureTokenCredentialsAuthentication(cred),
+            { HostAddress: { } host }
+                => new KustoConnectionStringBuilder(host.AbsoluteUri),
             { ConnectionString: { } cs }
                 => new KustoConnectionStringBuilder(cs),
             _ => throw new InvalidOperationException(
                 $"Missing configuration for kusto connection `{clientKey.ConnectionName}`"),
         };
+
+        if ((clientKey.DatabaseName ?? options.DatabaseName) is { } database)
+        {
+            builder.InitialCatalog = database;
+        }
+
+        return options.Credential is { } credential
+            ? builder.WithAadAzureTokenCredentialsAuthentication(credential)
+            : builder;
+    }
 
     public void Dispose()
     {

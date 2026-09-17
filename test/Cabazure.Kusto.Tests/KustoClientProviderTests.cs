@@ -1,118 +1,157 @@
-﻿using Microsoft.Extensions.Options;
+using Azure.Core;
+using Microsoft.Extensions.Options;
 
 namespace Cabazure.Kusto.Tests;
 
 public class KustoClientProviderTests
 {
+    private const string HostAddress = "http://localhost:8080/";
+
     [Theory, AutoNSubstituteData]
-    public void GetQueryClient_Returns_Client(
+    public void GetQueryClient_Uses_Configured_Database(
         [Frozen] IOptionsMonitor<CabazureKustoOptions> monitor,
-        CabazureKustoOptions options,
+        string databaseName,
+        TokenCredential credential,
         KustoClientProvider sut)
     {
-        monitor.Get(null).Returns(options);
+        monitor.Get(null).Returns(
+            CreateOptions(
+                databaseName: databaseName,
+                credential: credential));
 
         var client = sut.GetQueryClient();
 
-        client.DefaultDatabaseName = options.DatabaseName;
+        client.DefaultDatabaseName.Should().Be(databaseName);
     }
 
     [Theory, AutoNSubstituteData]
-    public void GetQueryClient_Returns_Client_With_Connection(
+    public void GetQueryClient_Uses_Requested_Database(
         [Frozen] IOptionsMonitor<CabazureKustoOptions> monitor,
-        CabazureKustoOptions options,
-        string connectionName,
+        string configuredDatabase,
+        string requestedDatabase,
+        TokenCredential credential,
         KustoClientProvider sut)
     {
-        monitor.Get(connectionName).Returns(options);
+        monitor.Get(null).Returns(
+            CreateOptions(
+                databaseName: configuredDatabase,
+                credential: credential));
+
+        var client = sut.GetQueryClient(databaseName: requestedDatabase);
+
+        client.DefaultDatabaseName.Should().Be(requestedDatabase);
+    }
+
+    [Theory, AutoNSubstituteData]
+    public void GetQueryClient_Uses_Requested_Database_For_ConnectionString(
+        [Frozen] IOptionsMonitor<CabazureKustoOptions> monitor,
+        string configuredDatabase,
+        string requestedDatabase,
+        KustoClientProvider sut)
+    {
+        monitor.Get(null).Returns(
+            CreateOptions(
+                connectionString: HostAddress,
+                databaseName: configuredDatabase));
+
+        var client = sut.GetQueryClient(databaseName: requestedDatabase);
+
+        client.DefaultDatabaseName.Should().Be(requestedDatabase);
+    }
+
+    [Theory, AutoNSubstituteData]
+    public void GetQueryClient_Uses_Connection_Specific_Options(
+        [Frozen] IOptionsMonitor<CabazureKustoOptions> monitor,
+        string connectionName,
+        string databaseName,
+        TokenCredential credential,
+        KustoClientProvider sut)
+    {
+        monitor.Get(connectionName).Returns(
+            CreateOptions(
+                databaseName: databaseName,
+                credential: credential));
 
         var client = sut.GetQueryClient(connectionName);
 
-        client.DefaultDatabaseName = options.DatabaseName;
+        client.DefaultDatabaseName.Should().Be(databaseName);
     }
 
     [Theory, AutoNSubstituteData]
-    public void GetQueryClient_Returns_Client_With_Database(
+    public void GetAdminClient_Uses_Configured_Database(
         [Frozen] IOptionsMonitor<CabazureKustoOptions> monitor,
-        CabazureKustoOptions options,
         string databaseName,
+        TokenCredential credential,
         KustoClientProvider sut)
     {
-        monitor.Get(null).Returns(options);
-
-        var client = sut.GetQueryClient(databaseName: databaseName);
-
-        client.DefaultDatabaseName = databaseName;
-    }
-
-    [Theory, AutoNSubstituteData]
-    public void GetQueryClient_Returns_Client_With_Connection_And_Database(
-        [Frozen] IOptionsMonitor<CabazureKustoOptions> monitor,
-        CabazureKustoOptions options,
-        string connectionName,
-        string databaseName,
-        KustoClientProvider sut)
-    {
-        monitor.Get(connectionName).Returns(options);
-
-        var client = sut.GetQueryClient(connectionName, databaseName);
-
-        client.DefaultDatabaseName = databaseName;
-    }
-
-    [Theory, AutoNSubstituteData]
-    public void GetAdminClient_Returns_Client(
-        [Frozen] IOptionsMonitor<CabazureKustoOptions> monitor,
-        CabazureKustoOptions options,
-        KustoClientProvider sut)
-    {
-        monitor.Get(null).Returns(options);
+        monitor.Get(null).Returns(
+            CreateOptions(
+                databaseName: databaseName,
+                credential: credential));
 
         var client = sut.GetAdminClient();
 
-        client.DefaultDatabaseName = options.DatabaseName;
+        client.DefaultDatabaseName.Should().Be(databaseName);
     }
 
     [Theory, AutoNSubstituteData]
-    public void GetAdminClient_Returns_Client_With_Connection(
+    public void GetAdminClient_Uses_Requested_Database(
         [Frozen] IOptionsMonitor<CabazureKustoOptions> monitor,
-        CabazureKustoOptions options,
-        string connectionName,
+        string configuredDatabase,
+        string requestedDatabase,
+        TokenCredential credential,
         KustoClientProvider sut)
     {
-        monitor.Get(connectionName).Returns(options);
+        monitor.Get(null).Returns(
+            CreateOptions(
+                databaseName: configuredDatabase,
+                credential: credential));
 
-        var client = sut.GetAdminClient(connectionName);
+        var client = sut.GetAdminClient(databaseName: requestedDatabase);
 
-        client.DefaultDatabaseName = options.DatabaseName;
+        client.DefaultDatabaseName.Should().Be(requestedDatabase);
     }
 
     [Theory, AutoNSubstituteData]
-    public void GetAdminClient_Returns_Client_With_Database(
+    public void GetAdminClient_Uses_Requested_Database_For_ConnectionString(
         [Frozen] IOptionsMonitor<CabazureKustoOptions> monitor,
-        CabazureKustoOptions options,
-        string databaseName,
+        string configuredDatabase,
+        string requestedDatabase,
         KustoClientProvider sut)
     {
-        monitor.Get(null).Returns(options);
+        monitor.Get(null).Returns(
+            CreateOptions(
+                connectionString: HostAddress,
+                databaseName: configuredDatabase));
 
-        var client = sut.GetAdminClient(databaseName: databaseName);
+        var client = sut.GetAdminClient(databaseName: requestedDatabase);
 
-        client.DefaultDatabaseName = databaseName;
+        client.DefaultDatabaseName.Should().Be(requestedDatabase);
     }
 
     [Theory, AutoNSubstituteData]
-    public void GetAdminClient_Returns_Client_With_Connection_And_Database(
+    public void GetQueryClient_Throws_When_Connection_Is_Not_Configured(
         [Frozen] IOptionsMonitor<CabazureKustoOptions> monitor,
-        CabazureKustoOptions options,
-        string connectionName,
-        string databaseName,
         KustoClientProvider sut)
     {
-        monitor.Get(connectionName).Returns(options);
+        monitor.Get(null).Returns(new CabazureKustoOptions());
 
-        var client = sut.GetAdminClient(connectionName, databaseName);
+        var act = () => sut.GetQueryClient();
 
-        client.DefaultDatabaseName = databaseName;
+        act.Should().Throw<InvalidOperationException>();
     }
+
+    private static CabazureKustoOptions CreateOptions(
+        string? connectionString = null,
+        string? databaseName = null,
+        TokenCredential? credential = null)
+        => new()
+        {
+            HostAddress = connectionString == null
+                ? new Uri(HostAddress)
+                : null,
+            ConnectionString = connectionString,
+            DatabaseName = databaseName,
+            Credential = credential,
+        };
 }
