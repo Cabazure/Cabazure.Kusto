@@ -36,6 +36,8 @@ builder.Services.AddCabazureKusto(o =>
 
 _Note: The `CabazureKustoOptions` can also be configured using the `Microsoft.Extensions.Options` framework, by registering an implementation of `IConfigureOptions<CabazureKustoOptions>`. In this case, it can be omitted on the `AddCabazureKusto()` call._
 
+_Note: The connection can also be configured using `o.ConnectionString` instead of `o.HostAddress`. In both cases, `o.DatabaseName` is the default database, which can be overridden per query by passing a `databaseName` to `IKustoProcessorFactory.Create()`._
+
 ### 2. Adding a Kusto query
 
 A Kusto query is added by creating two files to your project:
