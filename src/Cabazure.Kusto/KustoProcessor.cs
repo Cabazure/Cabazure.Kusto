@@ -53,4 +53,14 @@ public class KustoProcessor(
          : new PagedResult<T>(
              Items: await ExecuteAsync(query, cancellationToken) ?? [],
              ContinuationToken: null);
+
+    public IAsyncEnumerable<T> ExecuteAsync<T>(
+        IKustoStreamQuery<T> query,
+        CancellationToken cancellationToken)
+        => factory
+            .CreateStream(
+                query,
+                ConnectionName,
+                DatabaseName)
+            .ExecuteAsync(cancellationToken);
 }

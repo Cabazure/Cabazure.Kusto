@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Cabazure.Kusto.Processing;
 
 namespace Cabazure.Kusto.Tests;
@@ -136,5 +137,57 @@ public class KustoProcessorTests
         result
             .Should()
             .Be(queryResult);
+    }
+
+    [Theory, AutoNSubstituteData]
+    public void ExecuteAsync_Will_Create_Stream_Handler(
+        [Frozen] IScriptHandlerFactory factory,
+        [Modest] KustoProcessor sut,
+        IKustoStreamQuery<T> query,
+        CancellationToken cancellationToken)
+    {
+        _ = sut.ExecuteAsync(query, cancellationToken);
+
+        _ = factory
+            .Received(1)
+            .CreateStream(
+                query,
+                sut.ConnectionName,
+                sut.DatabaseName);
+    }
+
+    [Theory, AutoNSubstituteData]
+    public async Task ExecuteAsync_Will_Return_Stream_From_Handler(
+        [Frozen] IScriptHandlerFactory factory,
+        [Modest] KustoProcessor sut,
+        IKustoStreamQuery<T> query,
+        IStreamScriptHandler<T> handler,
+        T queryResult,
+        CancellationToken cancellationToken)
+    {
+        factory
+            .CreateStream<T>(default, default, default)
+            .ReturnsForAnyArgs(handler);
+
+        handler
+            .ExecuteAsync(cancellationToken)
+            .Returns(_ => ReturnOne(queryResult, cancellationToken));
+
+        var results = new List<T>();
+        await foreach (var item in sut.ExecuteAsync(query, cancellationToken))
+        {
+            results.Add(item);
+        }
+
+        results.Should().Equal(queryResult);
+    }
+
+    private static async IAsyncEnumerable<T> ReturnOne(
+        T item,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        yield return item;
+        await Task.CompletedTask;
     }
 }

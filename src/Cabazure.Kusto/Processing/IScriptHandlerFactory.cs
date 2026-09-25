@@ -12,6 +12,11 @@ public interface IScriptHandlerFactory
         string? connectionName = null,
         string? databaseName = null);
 
+    IStreamScriptHandler<T> CreateStream<T>(
+        IKustoStreamQuery<T> query,
+        string? connectionName = null,
+        string? databaseName = null);
+
     IScriptHandler<PagedResult<T>> Create<T>(
         IKustoQuery<IReadOnlyList<T>> query,
         string? sessionId,

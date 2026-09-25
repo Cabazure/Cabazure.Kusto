@@ -42,54 +42,75 @@ public static class DataReaderExtensions
         var results = new List<T>();
         while (reader.Read())
         {
-            buffer.Clear();
-            doc.Reset(buffer);
-
-            doc.WriteStartObject();
-
-            for (int i = 0; i < reader.FieldCount; i++)
-            {
-                var name = reader.GetName(i);
-                if (options.PropertyNamingPolicy is { } np)
-                {
-                    name = np.ConvertName(name);
-                }
-
-                var value = reader.GetDataTypeName(i) switch
-                {
-                    nameof(SByte) => reader.GetBoolean(i),
-                    _ => reader.GetValue(i)
-                };
-
-                doc.WritePropertyName(name);
-
-                if (value is JToken jtoken)
-                {
-                    doc.WriteRawValue(
-                        jtoken.ToString(
-                            Newtonsoft.Json.Formatting.None));
-                }
-                else if (value is DBNull)
-                {
-                    doc.WriteNullValue();
-                }
-                else if (value is SqlDecimal sd)
-                {
-                    doc.WriteNumberValue(sd.ToDecimal());
-                }
-                else
-                {
-                    JsonSerializer.Serialize(doc, value, options);
-                }
-            }
-
-            doc.WriteEndObject();
-            doc.Flush();
-
-            results.Add(JsonSerializer.Deserialize<T>(buffer.WrittenSpan, options)!);
+            results.Add(ReadObject<T>(reader, options, buffer, doc));
         }
 
         return [.. results];
+    }
+
+    public static T ReadObject<T>(
+        this IDataReader reader,
+        JsonSerializerOptions? options = null)
+    {
+        options ??= DefaultJsonOption;
+
+        var buffer = new ArrayBufferWriter<byte>();
+        using var doc = new Utf8JsonWriter(buffer);
+
+        return ReadObject<T>(reader, options, buffer, doc);
+    }
+
+    private static T ReadObject<T>(
+        IDataReader reader,
+        JsonSerializerOptions options,
+        ArrayBufferWriter<byte> buffer,
+        Utf8JsonWriter doc)
+    {
+        buffer.Clear();
+        doc.Reset(buffer);
+
+        doc.WriteStartObject();
+
+        for (int i = 0; i < reader.FieldCount; i++)
+        {
+            var name = reader.GetName(i);
+            if (options.PropertyNamingPolicy is { } np)
+            {
+                name = np.ConvertName(name);
+            }
+
+            var value = reader.GetDataTypeName(i) switch
+            {
+                nameof(SByte) => reader.GetBoolean(i),
+                _ => reader.GetValue(i)
+            };
+
+            doc.WritePropertyName(name);
+
+            if (value is JToken jtoken)
+            {
+                doc.WriteRawValue(
+                    jtoken.ToString(
+                        Newtonsoft.Json.Formatting.None));
+            }
+            else if (value is DBNull)
+            {
+                doc.WriteNullValue();
+            }
+            else if (value is SqlDecimal sd)
+            {
+                doc.WriteNumberValue(sd.ToDecimal());
+            }
+            else
+            {
+                JsonSerializer.Serialize(doc, value, options);
+            }
+        }
+
+        doc.WriteEndObject();
+        doc.Flush();
+
+        return JsonSerializer.Deserialize<T>(buffer.WrittenSpan, options)!;
     }
 
     private static decimal ToDecimal(this SqlDecimal sqlDecimal)
@@ -147,3 +168,4 @@ public static class DataReaderExtensions
                 value.ToString());
     }
 }
+

@@ -16,4 +16,8 @@ public interface IKustoProcessor
         int? maxItemCount,
         string? continuationToken,
         CancellationToken cancellationToken);
+
+    IAsyncEnumerable<T> ExecuteAsync<T>(
+        IKustoStreamQuery<T> query,
+        CancellationToken cancellationToken);
 }

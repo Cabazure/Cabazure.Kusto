@@ -125,6 +125,24 @@ The `maxItemCount` specifies how many items to return for each page. Each page i
 
 The optional `sessionId` can be provided to optimize the use of storage on the ADX. If the same `sessionId` is specified for two calls they will share the underlying storage for pagination results.
 
+### Streaming queries
+
+When you want to process large result sets row-by-row without materializing the full result into memory first, derive your query from `StreamKustoQuery<T>` and execute it with `ExecuteAsync()`.
+
+```csharp
+public record CustomerExportQuery(string CustomerType)
+  : StreamKustoQuery<Customer>;
+
+app.MapGet(
+  "/customers/export",
+  (IKustoProcessor processor, CancellationToken cancellationToken)
+    => processor.ExecuteAsync(
+      new CustomerExportQuery("type"),
+      cancellationToken));
+```
+
+Streaming queries reuse the same row deserialization rules as `KustoQuery<T>`, including support for dynamic columns, `SqlDecimal`, `DBNull`, and `DateOnly`. The streaming path also enables Kusto progressive results on the request. Actual network-level incremental delivery still depends on the Kusto SDK/server behavior, but rows are always exposed lazily to the caller.
+
 ## Sample
 
 Please see the [SampleApi project](https://github.com/Cabazure/Cabazure.Kusto/tree/main/samples/SampleApi), for an example of how Cabazure.Kusto can be setup to query the "ContosoSales" database of the ADX sample cluster.
