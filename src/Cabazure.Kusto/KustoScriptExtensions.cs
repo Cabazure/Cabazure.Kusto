@@ -14,10 +14,28 @@ public static class KustoScriptExtensions
 
     public static ClientRequestProperties GetRequestProperties(
         this IKustoScript script)
-        => new(null, script.GetCslParameters())
+        => script.GetRequestProperties(progressiveResultsEnabled: false);
+
+    public static ClientRequestProperties GetRequestProperties(
+        this IKustoScript script,
+        bool progressiveResultsEnabled)
+    {
+        var requestProperties = new ClientRequestProperties(
+            null,
+            script.GetCslParameters())
         {
             ClientRequestId = Guid.NewGuid().ToString(),
         };
+
+        if (progressiveResultsEnabled)
+        {
+            requestProperties.SetOption(
+                ClientRequestProperties.OptionResultsProgressiveEnabled,
+                true);
+        }
+
+        return requestProperties;
+    }
 
     public static IEnumerable<KeyValuePair<string, string>> GetCslParameters(
         this IKustoScript script)

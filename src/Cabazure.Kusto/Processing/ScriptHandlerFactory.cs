@@ -25,6 +25,16 @@ public class ScriptHandlerFactory(
                 databaseName),
             query);
 
+    public IStreamScriptHandler<T> CreateStream<T>(
+        IKustoStreamQuery<T> query,
+        string? connectionName = null,
+        string? databaseName = null)
+        => new StreamQueryHandler<T>(
+            clientProvider.GetQueryClient(
+                connectionName,
+                databaseName),
+            query);
+
     public IScriptHandler<PagedResult<T>> Create<T>(
         IKustoQuery<IReadOnlyList<T>> query,
         string? sessionId,

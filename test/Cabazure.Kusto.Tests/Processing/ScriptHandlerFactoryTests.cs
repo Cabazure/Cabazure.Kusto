@@ -14,6 +14,15 @@ public class ScriptHandlerFactoryTests
             .BeAssignableTo<SimpleQueryHandler<string>>();
 
     [Theory, AutoNSubstituteData]
+    public void CanCreate_StreamQueryHandler(
+        ScriptHandlerFactory sut,
+        IKustoStreamQuery<string> query)
+        => sut
+            .CreateStream(query)
+            .Should()
+            .BeAssignableTo<StreamQueryHandler<string>>();
+
+    [Theory, AutoNSubstituteData]
     public void CanCreate_NewStoredQueryHandler(
         ScriptHandlerFactory sut,
         IKustoQuery<IReadOnlyList<string>> query,
