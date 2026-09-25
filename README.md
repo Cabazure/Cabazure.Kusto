@@ -141,7 +141,7 @@ app.MapGet(
       cancellationToken));
 ```
 
-Streaming queries reuse the same row deserialization rules as `KustoQuery<T>`, including support for dynamic columns, `SqlDecimal`, `DBNull`, and `DateOnly`. The streaming path also enables Kusto progressive results on the request. Actual network-level incremental delivery still depends on the Kusto SDK/server behavior, but rows are always exposed lazily to the caller.
+Streaming queries reuse the same row deserialization rules as `KustoQuery<T>`, including support for dynamic columns, `SqlDecimal`, `DBNull`, and `DateOnly`. Row-by-row delivery is driven by the underlying Kusto SDK's HTTP response streaming (enabled by default via `KustoConnectionStringBuilder.Streaming`), so rows are exposed lazily to the caller without buffering the full result set client-side.
 
 ## Sample
 
