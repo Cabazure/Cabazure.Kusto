@@ -15,7 +15,7 @@ public class StreamQueryHandler<T>(
             .ExecuteQueryAsync(
                 databaseName: null,
                 query.GetQueryText(),
-                query.GetRequestProperties(progressiveResultsEnabled: true),
+                query.GetRequestProperties(),
                 cancellationToken);
 
         try

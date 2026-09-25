@@ -1,3 +1,5 @@
+using Kusto.Data.Common;
+
 namespace Cabazure.Kusto.Tests;
 
 public class KustoScriptExtensionsTests
@@ -80,5 +82,23 @@ public class KustoScriptExtensionsTests
                 .ToDictionary(
                     n => n,
                     _ => cslData));
+    }
+
+    [Theory, AutoNSubstituteData]
+    public void GetRequestProperties_Does_Not_Set_Progressive_Results_Option(
+        IKustoQuery<T> query)
+    {
+        // Regression test: `results_progressive_enabled` is a v2-only
+        // option. ICslQueryProvider.ExecuteQueryAsync always targets the v1
+        // endpoint, which rejects requests with that option set. This must
+        // never be set here (see StreamQueryHandler, which relies on
+        // `Streaming` on the connection string instead).
+        var result = KustoScriptExtensions
+            .GetRequestProperties(query);
+
+        result
+            .HasOption(ClientRequestProperties.OptionResultsProgressiveEnabled)
+            .Should()
+            .BeFalse();
     }
 }

@@ -12,30 +12,22 @@ public static class KustoScriptExtensions
         Converters = { new StringEnumConverter() },
     };
 
+    // Note: `ClientRequestProperties.OptionResultsProgressiveEnabled` is a
+    // v2-only ("v2/rest/query") option; ICslQueryProvider.ExecuteQueryAsync
+    // always issues requests against the v1 endpoint ("v1/rest/query"),
+    // which rejects requests with that option set ("Progressive query
+    // results are not supported for api_version=v1"). Row-by-row streaming
+    // of v1 results is instead controlled by KustoConnectionStringBuilder's
+    // `Streaming` setting (true by default), which StreamQueryHandler relies
+    // on implicitly - no request-level option is needed or supported here.
     public static ClientRequestProperties GetRequestProperties(
         this IKustoScript script)
-        => script.GetRequestProperties(progressiveResultsEnabled: false);
-
-    public static ClientRequestProperties GetRequestProperties(
-        this IKustoScript script,
-        bool progressiveResultsEnabled)
-    {
-        var requestProperties = new ClientRequestProperties(
+        => new(
             null,
             script.GetCslParameters())
         {
             ClientRequestId = Guid.NewGuid().ToString(),
         };
-
-        if (progressiveResultsEnabled)
-        {
-            requestProperties.SetOption(
-                ClientRequestProperties.OptionResultsProgressiveEnabled,
-                true);
-        }
-
-        return requestProperties;
-    }
 
     public static IEnumerable<KeyValuePair<string, string>> GetCslParameters(
         this IKustoScript script)
