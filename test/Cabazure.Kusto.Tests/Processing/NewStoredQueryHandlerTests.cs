@@ -26,7 +26,7 @@ public class NewStoredQueryHandlerTests
         sessionId = fixture.Create<string>().ToAlphaNumeric();
         queryId = fixture.Create<string>().ToAlphaNumeric();
 
-        queryIdProvider.Create(default, default).ReturnsForAnyArgs(queryId);
+        queryIdProvider.CreateQueryId(default!, default, default).ReturnsForAnyArgs(queryId);
 
         sut = new(queryIdProvider, adminProvider, query, sessionId, maxItemCount, expiration);
     }
@@ -39,9 +39,32 @@ public class NewStoredQueryHandlerTests
 
         queryIdProvider
             .Received(1)
-            .Create(
-                query.GetType(),
-                sessionId);
+            .CreateQueryId(
+                query,
+                sessionId,
+                null);
+    }
+
+    [Theory, AutoNSubstituteData]
+    public async Task ExecuteAsync_Creates_A_QueryId_With_Nonce_Without_SessionId(
+        CancellationToken cancellationToken)
+    {
+        var sut = new NewStoredQueryHandler<string>(
+            queryIdProvider,
+            adminProvider,
+            query,
+            sessionId: null,
+            maxItemCount,
+            expiration);
+
+        await sut.ExecuteAsync(cancellationToken);
+
+        queryIdProvider
+            .Received(1)
+            .CreateQueryId(
+                query,
+                Arg.Is<string?>(s => s == null),
+                Arg.Is<string>(n => !string.IsNullOrEmpty(n)));
     }
 
     [Theory, AutoNSubstituteData]
