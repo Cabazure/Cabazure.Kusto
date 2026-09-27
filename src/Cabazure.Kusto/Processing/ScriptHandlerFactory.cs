@@ -48,10 +48,12 @@ public class ScriptHandlerFactory(
         bool includeTotalCount = false)
         => continuationToken != null
          ? new ExistingStoredQueryHandler<T>(
+            queryIdProvider,
             clientProvider.GetQueryClient(
                 connectionName,
                 databaseName),
             query,
+            sessionId,
             maxItemCount,
             continuationToken)
          : new NewStoredQueryHandler<T>(

@@ -4,36 +4,28 @@ using Kusto.Data.Exceptions;
 namespace Cabazure.Kusto.Processing;
 
 public class ExistingStoredQueryHandler<T>(
+    IQueryIdProvider queryIdProvider,
     ICslQueryProvider queryProvider,
     IKustoQuery<IReadOnlyList<T>> query,
+    string? sessionId,
     int maxItemCount,
     string continuationToken)
     : IScriptHandler<PagedResult<T>>
 {
     public async Task<PagedResult<T>?> ExecuteAsync(CancellationToken cancellationToken)
     {
-        var split = continuationToken.Split(';');
-        if (split.Length is not (2 or 3)
-            || !long.TryParse(split[1], out var itemsReturned))
+        if (StoredQueryContinuationToken.Parse(continuationToken) is not { } token)
         {
             return null;
         }
 
-        long? totalCount = null;
-        if (split.Length == 3)
-        {
-            if (!long.TryParse(split[2], out var total))
-            {
-                return null;
-            }
-
-            totalCount = total;
-        }
-
-        var queryId = split[0].ToAlphaNumeric();
-        var firstRowNum = itemsReturned + 1;
-        var lastRowNum = itemsReturned + maxItemCount;
-        var queryText = $"stored_query_result('{queryId}') | where row_number between({firstRowNum} .. {lastRowNum})";
+        var queryId = queryIdProvider.CreateQueryId(query, sessionId, token.Nonce);
+        var fingerprint = queryIdProvider.CreateFingerprint(query);
+        var queryText = StoredQueryResultCommands.CreatePageQuery(
+            queryId,
+            fingerprint,
+            token.ItemsReturned,
+            maxItemCount);
 
         try
         {
@@ -48,8 +40,15 @@ public class ExistingStoredQueryHandler<T>(
             {
                 { } items => new(
                     items,
-                    CreateContinuationToken(queryId, itemsReturned + items.Count, items.Count, totalCount),
-                    totalCount),
+                    StoredQueryContinuationToken
+                        .CreateNext(
+                            token.Nonce,
+                            token.ItemsReturned + items.Count,
+                            items.Count,
+                            maxItemCount,
+                            token.TotalCount)
+                        ?.ToString(),
+                    token.TotalCount),
                 _ => null,
             };
         }
@@ -58,17 +57,4 @@ public class ExistingStoredQueryHandler<T>(
             return null;
         }
     }
-
-    private string? CreateContinuationToken(
-        string queryId,
-        long itemsReturned,
-        int pageCount,
-        long? totalCount)
-        => totalCount switch
-        {
-            _ when pageCount < maxItemCount => null,
-            { } total when itemsReturned >= total => null,
-            { } total => $"{queryId};{itemsReturned};{total}",
-            _ => $"{queryId};{itemsReturned}",
-        };
 }

@@ -12,6 +12,7 @@ public class NewStoredQueryHandlerTests
     private readonly int maxItemCount;
     private readonly string sessionId;
     private readonly string queryId;
+    private readonly string fingerprint;
     private readonly TimeSpan expiration = TimeSpan.FromMinutes(30);
     private readonly NewStoredQueryHandler<string> sut;
 
@@ -26,7 +27,10 @@ public class NewStoredQueryHandlerTests
         sessionId = fixture.Create<string>().ToAlphaNumeric();
         queryId = fixture.Create<string>().ToAlphaNumeric();
 
+        fingerprint = fixture.Create<string>().ToAlphaNumeric();
+
         queryIdProvider.CreateQueryId(default!, default, default).ReturnsForAnyArgs(queryId);
+        queryIdProvider.CreateFingerprint(default!).ReturnsForAnyArgs(fingerprint);
 
         sut = new(queryIdProvider, adminProvider, query, sessionId, maxItemCount, expiration);
     }
@@ -68,6 +72,38 @@ public class NewStoredQueryHandlerTests
     }
 
     [Theory, AutoNSubstituteData]
+    public async Task ExecuteAsync_Returns_Nonce_In_ContinuationToken_Without_SessionId(
+        IDataReader reader,
+        CancellationToken cancellationToken)
+    {
+        string? nonce = null;
+        queryIdProvider
+            .CreateQueryId(query, Arg.Is<string?>(s => s == null), Arg.Do<string?>(n => nonce = n))
+            .Returns(queryId);
+        adminProvider
+            .ExecuteControlCommandAsync(default, default, default)
+            .ReturnsForAnyArgs(reader);
+        query
+            .ReadResult(default)
+            .ReturnsForAnyArgs(["a", "b", "c"]);
+        var sut = new NewStoredQueryHandler<string>(
+            queryIdProvider,
+            adminProvider,
+            query,
+            sessionId: null,
+            maxItemCount,
+            expiration);
+
+        var result = await sut.ExecuteAsync(cancellationToken);
+
+        result!.ContinuationToken
+            .Should()
+            .Be($"v2;{nonce};3")
+            .And
+            .NotContain(queryId);
+    }
+
+    [Theory, AutoNSubstituteData]
     public async Task ExecuteAsync_Calls_QueryProvider(
         string queryText,
         Dictionary<string, object> parameters,
@@ -84,7 +120,8 @@ public class NewStoredQueryHandlerTests
                 null,
                 $".set-or-replace stored_query_result ['{queryId}'] with (previewCount = {maxItemCount}, expiresAfter = 1800s) <|\n"
                 + queryText + "\n"
-                + $"| serialize row_number = row_number()",
+                + "| serialize row_number = row_number()\n"
+                + $"| extend cabazure_fingerprint = '{fingerprint}'",
                 Arg.Is<ClientRequestProperties>(p
                     => p.ClientRequestId != null));
     }
@@ -148,7 +185,7 @@ public class NewStoredQueryHandlerTests
             .BeEquivalentTo(queryResult);
         result.ContinuationToken
             .Should()
-            .BeEquivalentTo($"{queryId};{queryResult.Length}");
+            .Be($"v2;;{queryResult.Length}");
         result.TotalCount
             .Should()
             .BeNull();
@@ -204,7 +241,7 @@ public class NewStoredQueryHandlerTests
             .Be(totalCount);
         result.ContinuationToken
             .Should()
-            .Be($"{queryId};{queryResult.Length};{totalCount}");
+            .Be($"v2;;{queryResult.Length};{totalCount}");
     }
 
     [Theory, AutoNSubstituteData]
