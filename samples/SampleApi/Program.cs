@@ -31,6 +31,7 @@ app.MapGet(
         [FromHeader(Name = "x-client-session-id")] string? sessionId,
         [FromHeader(Name = "x-max-item-count")] int? maxItemCount,
         [FromHeader(Name = "x-continuation-token")] string? continuationToken,
+        [FromHeader(Name = "x-include-total-count")] bool? includeTotalCount,
         IKustoProcessor processor,
         CancellationToken cancellationToken)
         => await processor.ExecuteAsync(
@@ -38,6 +39,7 @@ app.MapGet(
             sessionId,
             maxItemCount ?? 100,
             continuationToken,
+            includeTotalCount ?? false,
             cancellationToken))
     .WithName("ListCustomers");
 
