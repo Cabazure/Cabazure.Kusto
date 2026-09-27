@@ -125,6 +125,26 @@ The `maxItemCount` specifies how many items to return for each page. Each page i
 
 The optional `sessionId` can be provided to optimize the use of storage on the ADX. If the same `sessionId` is specified for two calls they will share the underlying storage for pagination results.
 
+#### Total count
+
+To also get the total number of items across all pages, use the overload that takes an `includeTotalCount` flag:
+
+```csharp
+var result = await processor.ExecuteAsync(
+  new CustomerQuery("type"),
+  sessionId,
+  maxItemCount,
+  continuationToken,
+  includeTotalCount: true,
+  cancellationToken);
+
+long? total = result?.TotalCount;
+```
+
+The total count is opt-in. When you don't request it, `TotalCount` is `null` and paging works exactly as before, with no extra cost.
+
+When you request it, the total is fetched once on the first page by running `.show stored_query_results`. This call reads the stored result's metadata and doesn't rerun your query. It is skipped when the first page isn't full, because the item count is then the total. The total is included in the continuation token (`{queryId};{itemsReturned};{totalCount}`), so later pages need no extra calls. Paging also stops as soon as the total is reached.
+
 ### Streaming queries
 
 When you want to process large result sets row-by-row without materializing the full result into memory first, derive your query from `StreamKustoQuery<T>` and execute it with `ExecuteAsync()`.

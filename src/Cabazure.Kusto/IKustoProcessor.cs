@@ -17,6 +17,14 @@ public interface IKustoProcessor
         string? continuationToken,
         CancellationToken cancellationToken);
 
+    Task<PagedResult<T>?> ExecuteAsync<T>(
+        IKustoQuery<IReadOnlyList<T>> query,
+        string? sessionId,
+        int? maxItemCount,
+        string? continuationToken,
+        bool includeTotalCount,
+        CancellationToken cancellationToken);
+
     IAsyncEnumerable<T> ExecuteAsync<T>(
         IKustoStreamQuery<T> query,
         CancellationToken cancellationToken);

@@ -2,4 +2,5 @@ namespace Cabazure.Kusto;
 
 public record PagedResult<T>(
     IReadOnlyList<T> Items,
-    string? ContinuationToken);
+    string? ContinuationToken,
+    long? TotalCount = null);

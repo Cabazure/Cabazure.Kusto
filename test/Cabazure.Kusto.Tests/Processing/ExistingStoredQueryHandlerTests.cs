@@ -80,5 +80,90 @@ public class ExistingStoredQueryHandlerTests
         result.ContinuationToken
             .Should()
             .BeEquivalentTo($"{queryId};{itemsReturned + queryResult.Length}");
+        result.TotalCount
+            .Should()
+            .BeNull();
+    }
+
+    [Theory, AutoNSubstituteData]
+    public async Task ExecuteAsync_Returns_TotalCount_From_ContinuationToken(
+        IDataReader reader,
+        CancellationToken cancellationToken)
+    {
+        var totalCount = itemsReturned + 100L;
+        string[] queryResult = ["a", "b", "c"];
+        queryProvider
+            .ExecuteQueryAsync(default, default, default)
+            .ReturnsForAnyArgs(reader);
+        query
+            .ReadResult(default)
+            .ReturnsForAnyArgs(queryResult);
+        var sut = new ExistingStoredQueryHandler<string>(
+            queryProvider,
+            query,
+            maxItemCount,
+            $"{queryId};{itemsReturned};{totalCount}");
+
+        var result = await sut.ExecuteAsync(cancellationToken);
+
+        result!.TotalCount
+            .Should()
+            .Be(totalCount);
+        result.ContinuationToken
+            .Should()
+            .Be($"{queryId};{itemsReturned + queryResult.Length};{totalCount}");
+    }
+
+    [Theory, AutoNSubstituteData]
+    public async Task ExecuteAsync_Returns_No_ContinuationToken_When_TotalCount_Is_Reached(
+        IDataReader reader,
+        CancellationToken cancellationToken)
+    {
+        string[] queryResult = ["a", "b", "c"];
+        var totalCount = itemsReturned + queryResult.Length;
+        queryProvider
+            .ExecuteQueryAsync(default, default, default)
+            .ReturnsForAnyArgs(reader);
+        query
+            .ReadResult(default)
+            .ReturnsForAnyArgs(queryResult);
+        var sut = new ExistingStoredQueryHandler<string>(
+            queryProvider,
+            query,
+            maxItemCount,
+            $"{queryId};{itemsReturned};{totalCount}");
+
+        var result = await sut.ExecuteAsync(cancellationToken);
+
+        result!.TotalCount
+            .Should()
+            .Be(totalCount);
+        result.ContinuationToken
+            .Should()
+            .BeNull();
+    }
+
+    [Theory]
+    [InlineData("invalid")]
+    [InlineData("query;abc")]
+    [InlineData("query;10;abc")]
+    [InlineData("query;10;20;30")]
+    public async Task ExecuteAsync_Returns_Null_For_Invalid_ContinuationToken(
+        string invalidToken)
+    {
+        var sut = new ExistingStoredQueryHandler<string>(
+            queryProvider,
+            query,
+            maxItemCount,
+            invalidToken);
+
+        var result = await sut.ExecuteAsync(CancellationToken.None);
+
+        result
+            .Should()
+            .BeNull();
+        _ = queryProvider
+            .DidNotReceiveWithAnyArgs()
+            .ExecuteQueryAsync(default, default, default);
     }
 }
