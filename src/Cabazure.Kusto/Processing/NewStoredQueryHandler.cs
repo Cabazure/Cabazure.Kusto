@@ -9,6 +9,7 @@ public class NewStoredQueryHandler<T>(
     IKustoQuery<IReadOnlyList<T>> query,
     string? sessionId,
     int maxItemCount,
+    TimeSpan expiration,
     bool includeTotalCount = false)
     : IScriptHandler<PagedResult<T>>
 {
@@ -16,7 +17,7 @@ public class NewStoredQueryHandler<T>(
         CancellationToken cancellationToken)
     {
         var queryId = queryIdProvider.Create(query.GetType(), sessionId);
-        var header = $".set-or-replace stored_query_result ['{queryId}'] with (previewCount = {maxItemCount}, expiresAfter = 1h) <|";
+        var header = $".set-or-replace stored_query_result ['{queryId}'] with (previewCount = {maxItemCount}, expiresAfter = {(long)expiration.TotalSeconds}s) <|";
         var footer = $"| serialize row_number = row_number()";
         var queryText = $"{header}\n{query.GetQueryText().Trim(' ', '\n', '\t', ';')}\n{footer}";
 

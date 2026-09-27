@@ -12,6 +12,7 @@ public class NewStoredQueryHandlerTests
     private readonly int maxItemCount;
     private readonly string sessionId;
     private readonly string queryId;
+    private readonly TimeSpan expiration = TimeSpan.FromMinutes(30);
     private readonly NewStoredQueryHandler<string> sut;
 
     public NewStoredQueryHandlerTests()
@@ -27,7 +28,7 @@ public class NewStoredQueryHandlerTests
 
         queryIdProvider.Create(default, default).ReturnsForAnyArgs(queryId);
 
-        sut = new(queryIdProvider, adminProvider, query, sessionId, maxItemCount);
+        sut = new(queryIdProvider, adminProvider, query, sessionId, maxItemCount, expiration);
     }
 
     [Theory, AutoNSubstituteData]
@@ -58,11 +59,35 @@ public class NewStoredQueryHandlerTests
             .Received(1)
             .ExecuteControlCommandAsync(
                 null,
-                $".set-or-replace stored_query_result ['{queryId}'] with (previewCount = {maxItemCount}, expiresAfter = 1h) <|\n"
+                $".set-or-replace stored_query_result ['{queryId}'] with (previewCount = {maxItemCount}, expiresAfter = 1800s) <|\n"
                 + queryText + "\n"
                 + $"| serialize row_number = row_number()",
                 Arg.Is<ClientRequestProperties>(p
                     => p.ClientRequestId != null));
+    }
+
+    [Theory, AutoNSubstituteData]
+    public async Task ExecuteAsync_Uses_Configured_Expiration(
+        string queryText,
+        CancellationToken cancellationToken)
+    {
+        query.GetQueryText().Returns(queryText);
+        var sut = new NewStoredQueryHandler<string>(
+            queryIdProvider,
+            adminProvider,
+            query,
+            sessionId,
+            maxItemCount,
+            TimeSpan.FromHours(2));
+
+        await sut.ExecuteAsync(cancellationToken);
+
+        _ = adminProvider
+            .Received(1)
+            .ExecuteControlCommandAsync(
+                Arg.Is<string>(s => s == null),
+                Arg.Is<string>(s => s.Contains("expiresAfter = 7200s)")),
+                Arg.Any<ClientRequestProperties>());
     }
 
     [Theory, AutoNSubstituteData]
@@ -209,7 +234,7 @@ public class NewStoredQueryHandlerTests
     }
 
     private NewStoredQueryHandler<string> CreateSut(bool includeTotalCount)
-        => new(queryIdProvider, adminProvider, query, sessionId, maxItemCount, includeTotalCount);
+        => new(queryIdProvider, adminProvider, query, sessionId, maxItemCount, expiration, includeTotalCount);
 
     private void SetupStoredQueryResult(
         IDataReader reader,

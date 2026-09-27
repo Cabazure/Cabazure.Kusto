@@ -1,4 +1,5 @@
 using Cabazure.Kusto.Processing;
+using Microsoft.Extensions.Options;
 
 namespace Cabazure.Kusto.Tests.Processing;
 
@@ -68,4 +69,50 @@ public class ScriptHandlerFactoryTests
                 continuationToken)
             .Should()
             .BeAssignableTo<ExistingStoredQueryHandler<string>>();
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    [InlineData(24 * 60 * 60 + 1)]
+    public void Create_PagedHandler_Throws_For_Invalid_PagedResultExpiration(
+        int expirationSeconds)
+    {
+        var monitor = Substitute.For<IOptionsMonitor<CabazureKustoOptions>>();
+        monitor.Get(Arg.Any<string?>()).Returns(new CabazureKustoOptions
+        {
+            PagedResultExpiration = TimeSpan.FromSeconds(expirationSeconds),
+        });
+        var sut = new ScriptHandlerFactory(
+            Substitute.For<IQueryIdProvider>(),
+            Substitute.For<IKustoClientProvider>(),
+            monitor);
+
+        var act = () => sut.Create(
+            Substitute.For<IKustoQuery<IReadOnlyList<string>>>(),
+            sessionId: null,
+            maxItemCount: 10,
+            continuationToken: null);
+
+        act.Should().Throw<InvalidOperationException>();
+    }
+
+    [Fact]
+    public void Create_PagedHandler_Reads_PagedResultExpiration_For_Connection()
+    {
+        var monitor = Substitute.For<IOptionsMonitor<CabazureKustoOptions>>();
+        monitor.Get(Arg.Any<string?>()).Returns(new CabazureKustoOptions());
+        var sut = new ScriptHandlerFactory(
+            Substitute.For<IQueryIdProvider>(),
+            Substitute.For<IKustoClientProvider>(),
+            monitor);
+
+        sut.Create(
+            Substitute.For<IKustoQuery<IReadOnlyList<string>>>(),
+            sessionId: null,
+            maxItemCount: 10,
+            continuationToken: null,
+            connectionName: "named");
+
+        monitor.Received(1).Get("named");
+    }
 }
