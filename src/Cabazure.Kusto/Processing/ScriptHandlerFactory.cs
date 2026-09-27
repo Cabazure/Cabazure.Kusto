@@ -52,9 +52,13 @@ public class ScriptHandlerFactory(
             clientProvider.GetQueryClient(
                 connectionName,
                 databaseName),
+            clientProvider.GetAdminClient(
+                connectionName,
+                databaseName),
             query,
             sessionId,
             maxItemCount,
+            GetPagedResultExpiration(connectionName),
             continuationToken)
          : new NewStoredQueryHandler<T>(
             queryIdProvider,

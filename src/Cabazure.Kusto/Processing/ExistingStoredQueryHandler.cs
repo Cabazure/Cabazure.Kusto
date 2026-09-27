@@ -6,9 +6,11 @@ namespace Cabazure.Kusto.Processing;
 public class ExistingStoredQueryHandler<T>(
     IQueryIdProvider queryIdProvider,
     ICslQueryProvider queryProvider,
+    ICslAdminProvider adminProvider,
     IKustoQuery<IReadOnlyList<T>> query,
     string? sessionId,
     int maxItemCount,
+    TimeSpan expiration,
     string continuationToken)
     : IScriptHandler<PagedResult<T>>
 {
@@ -21,40 +23,78 @@ public class ExistingStoredQueryHandler<T>(
 
         var queryId = queryIdProvider.CreateQueryId(query, sessionId, token.Nonce);
         var fingerprint = queryIdProvider.CreateFingerprint(query);
-        var queryText = StoredQueryResultCommands.CreatePageQuery(
-            queryId,
-            fingerprint,
-            token.ItemsReturned,
-            maxItemCount);
+        var totalCount = token.TotalCount;
 
+        var items = await ReadPageAsync(queryId, fingerprint, token.ItemsReturned, cancellationToken);
+        if (items is null or { Count: 0 })
+        {
+            // The stored result has expired or been replaced by another query, so re-create it.
+            await RecreateAsync(queryId, fingerprint);
+            if (totalCount is not null)
+            {
+                totalCount = await StoredQueryResultCommands.GetTotalCountAsync(adminProvider, query, queryId);
+            }
+
+            items = await ReadPageAsync(queryId, fingerprint, token.ItemsReturned, cancellationToken);
+        }
+
+        return items switch
+        {
+            { } page => new(
+                page,
+                StoredQueryContinuationToken
+                    .CreateNext(
+                        token.Nonce,
+                        token.ItemsReturned + page.Count,
+                        page.Count,
+                        maxItemCount,
+                        totalCount)
+                    ?.ToString(),
+                totalCount),
+            _ => null,
+        };
+    }
+
+    private async Task<IReadOnlyList<T>?> ReadPageAsync(
+        string queryId,
+        string fingerprint,
+        long itemsReturned,
+        CancellationToken cancellationToken)
+    {
         try
         {
             using var reader = await queryProvider
                 .ExecuteQueryAsync(
                     databaseName: null,
-                    queryText,
+                    StoredQueryResultCommands.CreatePageQuery(
+                        queryId,
+                        fingerprint,
+                        itemsReturned,
+                        maxItemCount),
                     query.GetRequestProperties(),
                     cancellationToken);
 
-            return query.ReadResult(reader) switch
-            {
-                { } items => new(
-                    items,
-                    StoredQueryContinuationToken
-                        .CreateNext(
-                            token.Nonce,
-                            token.ItemsReturned + items.Count,
-                            items.Count,
-                            maxItemCount,
-                            token.TotalCount)
-                        ?.ToString(),
-                    token.TotalCount),
-                _ => null,
-            };
+            return query.ReadResult(reader);
         }
         catch (SemanticException)
         {
             return null;
         }
+    }
+
+    private async Task RecreateAsync(
+        string queryId,
+        string fingerprint)
+    {
+        using var reader = await adminProvider
+            .ExecuteControlCommandAsync(
+                databaseName: null,
+                StoredQueryResultCommands.CreateSetOrReplaceCommand(
+                    query,
+                    queryId,
+                    fingerprint,
+                    previewCount: 1,
+                    expiration),
+                query.GetRequestProperties());
     }
 }
