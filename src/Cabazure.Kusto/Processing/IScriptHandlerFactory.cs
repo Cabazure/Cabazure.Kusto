@@ -23,5 +23,6 @@ public interface IScriptHandlerFactory
         int maxItemCount,
         string? continuationToken,
         string? connectionName = null,
-        string? databaseName = null);
+        string? databaseName = null,
+        bool includeTotalCount = false);
 }

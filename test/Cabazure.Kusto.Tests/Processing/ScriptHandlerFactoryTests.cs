@@ -38,6 +38,22 @@ public class ScriptHandlerFactoryTests
             .BeAssignableTo<NewStoredQueryHandler<string>>();
 
     [Theory, AutoNSubstituteData]
+    public void CanCreate_NewStoredQueryHandler_With_TotalCount(
+        ScriptHandlerFactory sut,
+        IKustoQuery<IReadOnlyList<string>> query,
+        int maxItemCount,
+        string sessionId)
+        => sut
+            .Create(
+                query,
+                sessionId,
+                maxItemCount,
+                continuationToken: null,
+                includeTotalCount: true)
+            .Should()
+            .BeAssignableTo<NewStoredQueryHandler<string>>();
+
+    [Theory, AutoNSubstituteData]
     public void CanCreate_ExistingStoredQueryHandler(
         ScriptHandlerFactory sut,
         IKustoQuery<IReadOnlyList<string>> query,

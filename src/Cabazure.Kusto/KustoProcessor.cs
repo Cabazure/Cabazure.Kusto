@@ -34,25 +34,48 @@ public class KustoProcessor(
                 DatabaseName)
             .ExecuteAsync(cancellationToken);
 
-    public async Task<PagedResult<T>?> ExecuteAsync<T>(
+    public Task<PagedResult<T>?> ExecuteAsync<T>(
         IKustoQuery<IReadOnlyList<T>> query,
         string? sessionId,
         int? maxItemCount,
         string? continuationToken,
         CancellationToken cancellationToken)
-        => maxItemCount is { } count
-         ? await factory
-            .Create(
-                query,
-                sessionId,
-                count,
-                continuationToken,
-                ConnectionName,
-                DatabaseName)
-            .ExecuteAsync(cancellationToken)
-         : new PagedResult<T>(
-             Items: await ExecuteAsync(query, cancellationToken) ?? [],
-             ContinuationToken: null);
+        => ExecuteAsync(
+            query,
+            sessionId,
+            maxItemCount,
+            continuationToken,
+            includeTotalCount: false,
+            cancellationToken);
+
+    public async Task<PagedResult<T>?> ExecuteAsync<T>(
+        IKustoQuery<IReadOnlyList<T>> query,
+        string? sessionId,
+        int? maxItemCount,
+        string? continuationToken,
+        bool includeTotalCount,
+        CancellationToken cancellationToken)
+    {
+        if (maxItemCount is { } count)
+        {
+            return await factory
+                .Create(
+                    query,
+                    sessionId,
+                    count,
+                    continuationToken,
+                    ConnectionName,
+                    DatabaseName,
+                    includeTotalCount)
+                .ExecuteAsync(cancellationToken);
+        }
+
+        IReadOnlyList<T> items = await ExecuteAsync(query, cancellationToken) ?? [];
+        return new PagedResult<T>(
+            Items: items,
+            ContinuationToken: null,
+            TotalCount: includeTotalCount ? items.Count : null);
+    }
 
     public IAsyncEnumerable<T> ExecuteAsync<T>(
         IKustoStreamQuery<T> query,

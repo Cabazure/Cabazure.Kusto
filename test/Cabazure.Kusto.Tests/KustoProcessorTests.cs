@@ -108,6 +108,71 @@ public class KustoProcessorTests
     }
 
     [Theory, AutoNSubstituteData]
+    public async Task ExecuteAsync_Will_Create_Handler_For_PagedResult_With_TotalCount(
+        [Frozen] IScriptHandlerFactory factory,
+        [Modest] KustoProcessor sut,
+        IKustoQuery<IReadOnlyList<T>> query,
+        string sessionId,
+        int maxItemCount,
+        string continuationToken,
+        CancellationToken cancellationToken)
+    {
+        await sut.ExecuteAsync(
+            query,
+            sessionId,
+            maxItemCount,
+            continuationToken,
+            includeTotalCount: true,
+            cancellationToken);
+
+        _ = factory
+            .Received(1)
+            .Create(
+                query,
+                sessionId,
+                maxItemCount,
+                continuationToken,
+                sut.ConnectionName,
+                sut.DatabaseName,
+                includeTotalCount: true);
+    }
+
+    [Theory, AutoNSubstituteData]
+    public async Task ExecuteAsync_Will_Return_TotalCount_When_Not_Paging(
+        [Frozen] IScriptHandlerFactory factory,
+        [Modest] KustoProcessor sut,
+        IKustoQuery<IReadOnlyList<T>> query,
+        IScriptHandler<IReadOnlyList<T>> handler,
+        T[] queryResult,
+        CancellationToken cancellationToken)
+    {
+        factory
+            .Create<IReadOnlyList<T>>(default!, default, default)
+            .ReturnsForAnyArgs(handler);
+        handler
+            .ExecuteAsync(cancellationToken)
+            .Returns(queryResult);
+
+        var result = await sut.ExecuteAsync(
+            query,
+            sessionId: null,
+            maxItemCount: null,
+            continuationToken: null,
+            includeTotalCount: true,
+            cancellationToken);
+
+        result!.Items
+            .Should()
+            .BeEquivalentTo(queryResult);
+        result.ContinuationToken
+            .Should()
+            .BeNull();
+        result.TotalCount
+            .Should()
+            .Be(queryResult.Length);
+    }
+
+    [Theory, AutoNSubstituteData]
     public async Task ExecuteAsync_Will_Return_PagedResult_From_Handler(
         [Frozen] IScriptHandlerFactory factory,
         [Modest] KustoProcessor sut,

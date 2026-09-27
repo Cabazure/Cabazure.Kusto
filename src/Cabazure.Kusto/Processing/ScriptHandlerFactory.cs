@@ -41,7 +41,8 @@ public class ScriptHandlerFactory(
         int maxItemCount,
         string? continuationToken,
         string? connectionName = null,
-        string? databaseName = null)
+        string? databaseName = null,
+        bool includeTotalCount = false)
         => continuationToken != null
          ? new ExistingStoredQueryHandler<T>(
             clientProvider.GetQueryClient(
@@ -57,5 +58,6 @@ public class ScriptHandlerFactory(
                 databaseName),
             query,
             sessionId,
-            maxItemCount);
+            maxItemCount,
+            includeTotalCount);
 }
