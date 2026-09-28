@@ -1,4 +1,5 @@
 ﻿using Azure.Core;
+using System.Text.Json;
 
 namespace Cabazure.Kusto;
 
@@ -11,6 +12,9 @@ public class CabazureKustoOptions
     public TokenCredential? Credential { get; set; }
 
     public string? ConnectionString { get; set; }
+
+    public JsonSerializerOptions SerializerOptions { get; set; }
+        = DataReaderExtensions.CreateDefaultJsonOptions();
 
     public TimeSpan PagedResultExpiration { get; set; } = DefaultPagedResultExpiration;
 
@@ -42,6 +46,13 @@ public class CabazureKustoOptions
     public CabazureKustoOptions WithConnectionString(string connectionString)
     {
         ConnectionString = connectionString;
+        return this;
+    }
+
+    public CabazureKustoOptions WithSerializerOptions(
+        JsonSerializerOptions serializerOptions)
+    {
+        SerializerOptions = serializerOptions;
         return this;
     }
 }

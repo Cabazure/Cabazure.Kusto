@@ -1,4 +1,6 @@
 using Azure.Core;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Cabazure.Kusto.Tests;
 
@@ -46,5 +48,50 @@ public class CabazureKustoOptionsTests
 
         result.Should().BeSameAs(sut);
         sut.ConnectionString.Should().Be(connectionString);
+    }
+
+    [Theory, AutoNSubstituteData]
+    public void WithSerializerOptions_Sets_SerializerOptions(
+        JsonSerializerOptions serializerOptions,
+        CabazureKustoOptions sut)
+    {
+        CabazureKustoOptions result = sut.WithSerializerOptions(
+            serializerOptions);
+
+        result.Should().BeSameAs(sut);
+        sut.SerializerOptions.Should().BeSameAs(serializerOptions);
+    }
+
+    [Fact]
+    public void SerializerOptions_Uses_Query_Mapping_Defaults()
+    {
+        var sut = new CabazureKustoOptions();
+
+        sut.SerializerOptions.PropertyNameCaseInsensitive.Should().BeTrue();
+        sut.SerializerOptions.PropertyNamingPolicy
+            .Should()
+            .BeSameAs(JsonNamingPolicy.CamelCase);
+        sut.SerializerOptions.NumberHandling
+            .Should()
+            .Be(JsonNumberHandling.AllowReadingFromString);
+        sut.SerializerOptions.UnmappedMemberHandling
+            .Should()
+            .Be(JsonUnmappedMemberHandling.Skip);
+        sut.SerializerOptions.Converters
+            .Should()
+            .ContainSingle(c => c is JsonStringEnumConverter)
+            .And
+            .ContainSingle(c => c is DataReaderExtensions.DateOnlyJsonConverter);
+    }
+
+    [Fact]
+    public void SerializerOptions_Default_Is_Not_Shared()
+    {
+        var first = new CabazureKustoOptions();
+        var second = new CabazureKustoOptions();
+
+        first.SerializerOptions
+            .Should()
+            .NotBeSameAs(second.SerializerOptions);
     }
 }

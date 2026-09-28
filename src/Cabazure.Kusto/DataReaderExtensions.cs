@@ -13,18 +13,22 @@ public static class DataReaderExtensions
     const int DotNetDecimalMaxPrecision = 28;
     const int DotNetDecimalMaxScale = 27;
 
-    public static readonly JsonSerializerOptions DefaultJsonOption = new()
-    {
-        Converters =
+    public static readonly JsonSerializerOptions DefaultJsonOption
+        = CreateDefaultJsonOptions();
+
+    public static JsonSerializerOptions CreateDefaultJsonOptions()
+        => new()
         {
-            new JsonStringEnumConverter(),
-            new DateOnlyJsonConverter(),
-        },
-        PropertyNameCaseInsensitive = true,
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        NumberHandling = JsonNumberHandling.AllowReadingFromString,
-        UnmappedMemberHandling = JsonUnmappedMemberHandling.Skip,
-    };
+            Converters =
+            {
+                new JsonStringEnumConverter(),
+                new DateOnlyJsonConverter(),
+            },
+            PropertyNameCaseInsensitive = true,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            NumberHandling = JsonNumberHandling.AllowReadingFromString,
+            UnmappedMemberHandling = JsonUnmappedMemberHandling.Skip,
+        };
 
     public static T[] ReadObjectsFromNextResult<T>(
         this IDataReader reader)
