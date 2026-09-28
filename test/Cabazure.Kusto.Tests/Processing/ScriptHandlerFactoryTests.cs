@@ -1,4 +1,7 @@
+using System.Data;
+using System.Text.Json;
 using Cabazure.Kusto.Processing;
+using Kusto.Data.Common;
 using Microsoft.Extensions.Options;
 
 namespace Cabazure.Kusto.Tests.Processing;
@@ -114,5 +117,44 @@ public class ScriptHandlerFactoryTests
             connectionName: "named");
 
         monitor.Received(1).Get("named");
+    }
+
+    [Theory, AutoNSubstituteData]
+    public async Task Create_Uses_SerializerOptions_For_Connection(
+        string connectionName,
+        IDataReader reader,
+        CancellationToken cancellationToken)
+    {
+        var serializerOptions = new JsonSerializerOptions();
+        var monitor = Substitute.For<IOptionsMonitor<CabazureKustoOptions>>();
+        monitor.Get(connectionName).Returns(new CabazureKustoOptions
+        {
+            SerializerOptions = serializerOptions,
+        });
+        var queryProvider = Substitute.For<ICslQueryProvider>();
+        queryProvider
+            .ExecuteQueryAsync(default, default, default, default)
+            .ReturnsForAnyArgs(reader);
+        var clientProvider = Substitute.For<IKustoClientProvider>();
+        clientProvider
+            .GetQueryClient(connectionName, null)
+            .Returns(queryProvider);
+        var query = Substitute.For<IKustoQuery<string>>();
+        var sut = new ScriptHandlerFactory(
+            Substitute.For<IQueryIdProvider>(),
+            clientProvider,
+            monitor);
+
+        await sut
+            .Create(
+                query,
+                connectionName)
+            .ExecuteAsync(cancellationToken);
+
+        query
+            .Received(1)
+            .ReadResult(
+                reader,
+                serializerOptions);
     }
 }

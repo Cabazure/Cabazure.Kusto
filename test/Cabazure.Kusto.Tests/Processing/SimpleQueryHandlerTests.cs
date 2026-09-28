@@ -1,4 +1,5 @@
 using System.Data;
+using System.Text.Json;
 using Cabazure.Kusto.Processing;
 using Kusto.Data.Common;
 
@@ -34,10 +35,14 @@ public class SimpleQueryHandlerTests
     public async Task ExecuteAsync_Calls_Query_With_DataReader(
         [Frozen] ICslQueryProvider queryProvider,
         [Frozen] IKustoQuery<string> query,
-        SimpleQueryHandler<string> sut,
+        JsonSerializerOptions serializerOptions,
         IDataReader reader,
         CancellationToken cancellationToken)
     {
+        var sut = new SimpleQueryHandler<string>(
+            queryProvider,
+            query,
+            serializerOptions);
         queryProvider
             .ExecuteQueryAsync(default, default, default)
             .ReturnsForAnyArgs(reader);
@@ -46,7 +51,9 @@ public class SimpleQueryHandlerTests
 
         _ = query
             .Received(1)
-            .ReadResult(reader);
+            .ReadResult(
+                reader,
+                serializerOptions);
     }
 
     [Theory, AutoNSubstituteData]
@@ -62,7 +69,7 @@ public class SimpleQueryHandlerTests
             .ExecuteQueryAsync(default, default, default)
             .ReturnsForAnyArgs(reader);
         query
-            .ReadResult(default)
+            .ReadResult(default, default!)
             .ReturnsForAnyArgs(queryResult);
 
         var result = await sut.ExecuteAsync(cancellationToken);

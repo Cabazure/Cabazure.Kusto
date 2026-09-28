@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Kusto.Data.Common;
 
 namespace Cabazure.Kusto.Processing;
@@ -9,9 +10,13 @@ public class NewStoredQueryHandler<T>(
     string? sessionId,
     int maxItemCount,
     TimeSpan expiration,
-    bool includeTotalCount = false)
+    bool includeTotalCount = false,
+    JsonSerializerOptions? serializerOptions = null)
     : IScriptHandler<PagedResult<T>>
 {
+    private readonly JsonSerializerOptions serializerOptions
+        = serializerOptions ?? DataReaderExtensions.DefaultJsonOption;
+
     public async Task<PagedResult<T>?> ExecuteAsync(
         CancellationToken cancellationToken)
     {
@@ -32,7 +37,9 @@ public class NewStoredQueryHandler<T>(
                 queryText,
                 query.GetRequestProperties()))
         {
-            result = query.ReadResult(reader);
+            result = query.ReadResult(
+                reader,
+                serializerOptions);
         }
 
         if (result is not { } items)

@@ -62,7 +62,10 @@ public class StreamKustoQueryTests
         var query = new TestStreamQuery();
 
         var actual = new List<StreamQueryTestObject>();
-        await foreach (var item in query.ReadResults(streamReader, CancellationToken.None))
+        await foreach (var item in query.ReadResults(
+            streamReader,
+            DataReaderExtensions.DefaultJsonOption,
+            CancellationToken.None))
         {
             actual.Add(item);
         }

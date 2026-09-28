@@ -1,4 +1,5 @@
 using System.Data;
+using System.Text.Json;
 using Cabazure.Kusto.Processing;
 using Kusto.Data.Common;
 
@@ -14,6 +15,7 @@ public class NewStoredQueryHandlerTests
     private readonly string queryId;
     private readonly string fingerprint;
     private readonly TimeSpan expiration = TimeSpan.FromMinutes(30);
+    private readonly JsonSerializerOptions serializerOptions;
     private readonly NewStoredQueryHandler<string> sut;
 
     public NewStoredQueryHandlerTests()
@@ -28,11 +30,19 @@ public class NewStoredQueryHandlerTests
         queryId = fixture.Create<string>().ToAlphaNumeric();
 
         fingerprint = fixture.Create<string>().ToAlphaNumeric();
+        serializerOptions = new JsonSerializerOptions();
 
         queryIdProvider.CreateQueryId(default!, default, default).ReturnsForAnyArgs(queryId);
         queryIdProvider.CreateFingerprint(default!).ReturnsForAnyArgs(fingerprint);
 
-        sut = new(queryIdProvider, adminProvider, query, sessionId, maxItemCount, expiration);
+        sut = new(
+            queryIdProvider,
+            adminProvider,
+            query,
+            sessionId,
+            maxItemCount,
+            expiration,
+            serializerOptions: serializerOptions);
     }
 
     [Theory, AutoNSubstituteData]
@@ -84,7 +94,7 @@ public class NewStoredQueryHandlerTests
             .ExecuteControlCommandAsync(default, default, default)
             .ReturnsForAnyArgs(reader);
         query
-            .ReadResult(default)
+            .ReadResult(default, default!)
             .ReturnsForAnyArgs(["a", "b", "c"]);
         var sut = new NewStoredQueryHandler<string>(
             queryIdProvider,
@@ -163,7 +173,9 @@ public class NewStoredQueryHandlerTests
 
         _ = query
             .Received(1)
-            .ReadResult(reader);
+            .ReadResult(
+                reader,
+                serializerOptions);
     }
 
     [Theory, AutoNSubstituteData]
@@ -176,7 +188,7 @@ public class NewStoredQueryHandlerTests
             .ExecuteControlCommandAsync(default, default, default)
             .ReturnsForAnyArgs(reader);
         query
-            .ReadResult(default)
+            .ReadResult(default, default!)
             .ReturnsForAnyArgs(queryResult);
 
         var result = await sut.ExecuteAsync(cancellationToken);
@@ -201,7 +213,7 @@ public class NewStoredQueryHandlerTests
             .ExecuteControlCommandAsync(default, default, default)
             .ReturnsForAnyArgs(reader);
         query
-            .ReadResult(default)
+            .ReadResult(default, default!)
             .ReturnsForAnyArgs(queryResult);
 
         await sut.ExecuteAsync(cancellationToken);
@@ -273,7 +285,7 @@ public class NewStoredQueryHandlerTests
             .ExecuteControlCommandAsync(default, default, default)
             .ReturnsForAnyArgs(reader);
         query
-            .ReadResult(default)
+            .ReadResult(default, default!)
             .ReturnsForAnyArgs(queryResult);
         var sut = CreateSut(includeTotalCount: true);
 
@@ -319,7 +331,9 @@ public class NewStoredQueryHandlerTests
                 Arg.Any<ClientRequestProperties>())
             .Returns(_ => table.CreateDataReader());
         query
-            .ReadResult(reader)
+            .ReadResult(
+                reader,
+                Arg.Any<System.Text.Json.JsonSerializerOptions>())
             .Returns(queryResult);
     }
 }

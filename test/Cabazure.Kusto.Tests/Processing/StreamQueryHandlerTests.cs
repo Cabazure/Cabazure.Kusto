@@ -1,5 +1,6 @@
 using System.Data;
 using System.Runtime.CompilerServices;
+using System.Text.Json;
 using Cabazure.Kusto.Processing;
 using Kusto.Data.Common;
 
@@ -11,14 +12,18 @@ public class StreamQueryHandlerTests
     public async Task ExecuteAsync_Calls_QueryProvider(
         [Frozen] ICslQueryProvider queryProvider,
         [Frozen] IKustoStreamQuery<string> query,
-        StreamQueryHandler<string> sut,
+        JsonSerializerOptions serializerOptions,
         string queryText,
         Dictionary<string, object> parameters,
         CancellationToken cancellationToken)
     {
+        var sut = new StreamQueryHandler<string>(
+            queryProvider,
+            query,
+            serializerOptions);
         query.GetQueryText().Returns(queryText);
         query.GetParameters().Returns(parameters);
-        query.ReadResults(default!, default).ReturnsForAnyArgs(_ => Empty(cancellationToken));
+        query.ReadResults(default!, default!, default).ReturnsForAnyArgs(_ => Empty(cancellationToken));
 
         await foreach (var _ in sut.ExecuteAsync(cancellationToken))
         {
@@ -32,6 +37,12 @@ public class StreamQueryHandlerTests
                 Arg.Is<ClientRequestProperties>(p
                     => p.ClientRequestId != null
                     && p.Parameters.SequenceEqual(query.GetCslParameters())),
+                cancellationToken);
+        _ = query
+            .Received(1)
+            .ReadResults(
+                Arg.Any<IDataReader>(),
+                serializerOptions,
                 cancellationToken);
     }
 
@@ -47,7 +58,7 @@ public class StreamQueryHandlerTests
             .ExecuteQueryAsync(default, default, default, default)
             .ReturnsForAnyArgs(reader);
         query
-            .ReadResults(default!, default)
+            .ReadResults(default!, default!, default)
             .ReturnsForAnyArgs(_ => YieldMany(cancellationToken));
 
         await using (var enumerator = sut.ExecuteAsync(cancellationToken).GetAsyncEnumerator(cancellationToken))
@@ -73,7 +84,7 @@ public class StreamQueryHandlerTests
             .ExecuteQueryAsync(default, default, default, default)
             .ReturnsForAnyArgs(reader);
         query
-            .ReadResults(default!, default)
+            .ReadResults(default!, default!, default)
             .ReturnsForAnyArgs(_ => ThrowAfterFirst(cancellationToken));
 
         var results = new List<string>();
@@ -101,7 +112,7 @@ public class StreamQueryHandlerTests
             .ExecuteQueryAsync(default, default, default, default)
             .ReturnsForAnyArgs(reader);
         query
-            .ReadResults(default!, default)
+            .ReadResults(default!, default!, default)
             .ReturnsForAnyArgs(_ => YieldUntilCancelled(cts));
 
         var sut = new StreamQueryHandler<string>(queryProvider, query);

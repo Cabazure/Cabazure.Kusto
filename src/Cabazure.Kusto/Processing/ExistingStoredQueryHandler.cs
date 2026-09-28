@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Kusto.Data.Common;
 using Kusto.Data.Exceptions;
 
@@ -11,9 +12,13 @@ public class ExistingStoredQueryHandler<T>(
     string? sessionId,
     int maxItemCount,
     TimeSpan expiration,
-    string continuationToken)
+    string continuationToken,
+    JsonSerializerOptions? serializerOptions = null)
     : IScriptHandler<PagedResult<T>>
 {
+    private readonly JsonSerializerOptions serializerOptions
+        = serializerOptions ?? DataReaderExtensions.DefaultJsonOption;
+
     public async Task<PagedResult<T>?> ExecuteAsync(CancellationToken cancellationToken)
     {
         if (StoredQueryContinuationToken.Parse(continuationToken) is not { } token)
@@ -75,7 +80,9 @@ public class ExistingStoredQueryHandler<T>(
                     query.GetRequestProperties(),
                     cancellationToken);
 
-            return query.ReadResult(reader);
+            return query.ReadResult(
+                reader,
+                serializerOptions);
         }
         catch (SemanticException)
         {
