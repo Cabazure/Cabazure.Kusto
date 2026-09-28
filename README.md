@@ -32,6 +32,15 @@ Version 1.3.0 introduces typed ingestion and consolidates dependency injection a
       .WithCredential(credential)));
   ```
 
+- Named connections are configured inside the builder instead of through a named `AddCabazureKusto` overload:
+
+  ```csharp
+  services.AddCabazureKusto(kusto => kusto
+    .Configure("analytics", options => options
+      .WithHostAddress(analyticsCluster)
+      .WithDatabaseName(analyticsDatabase)));
+  ```
+
 - Custom `IKustoQuery<T>` implementations must accept the selected `JsonSerializerOptions` and pass them to result mapping:
 
   ```csharp
@@ -48,6 +57,8 @@ Version 1.3.0 introduces typed ingestion and consolidates dependency injection a
 - Code constructing query handlers directly must supply serializer options. `NewStoredQueryHandler<T>` also requires an explicit `includeTotalCount` argument.
 
 Applications using queries derived from `KustoQuery<T>` or `StreamKustoQuery<T>` through `IKustoProcessor` require no query migration.
+
+`AddIngestion<T>()` remains connection-independent: injected ingesters use the default connection/database, while `IKustoIngesterFactory` selects named connection or database overrides.
 
 ## Getting started
 
@@ -72,6 +83,8 @@ builder.Services.AddCabazureKusto(kusto => kusto
   .Configure<ConfigureKustoOptions>());
 ```
 
+Plain `IConfigureOptions<CabazureKustoOptions>` implementations configure the default connection. `IConfigureNamedOptions<CabazureKustoOptions>` implementations receive the requested connection name through their `Configure(name, options)` method.
+
 When options are registered separately, the builder callback can be omitted:
 
 ```csharp
@@ -79,20 +92,16 @@ builder.Services.ConfigureOptions<ConfigureKustoOptions>();
 builder.Services.AddCabazureKusto();
 ```
 
-Named connections use the overload taking a connection name:
+Named connections are configured by passing the connection name to `Configure()`:
 
 ```csharp
-builder.Services.AddCabazureKusto(
-  "analytics",
-  kusto => kusto.Configure<ConfigureKustoOptions>());
+builder.Services.AddCabazureKusto(kusto => kusto
+  .Configure("analytics", options => options
+    .WithHostAddress(analyticsCluster)
+    .WithDatabaseName(analyticsDatabase)));
 ```
 
-The named overload also supports external `IConfigureNamedOptions<CabazureKustoOptions>` configuration:
-
-```csharp
-builder.Services.ConfigureOptions<ConfigureKustoOptions>();
-builder.Services.AddCabazureKusto("analytics");
-```
+One builder callback can configure the default connection and any number of named connections. An externally registered `IConfigureNamedOptions<CabazureKustoOptions>` also works with the parameterless `AddCabazureKusto()` overload.
 
 The connection can use `WithConnectionString()` instead of `WithHostAddress()`. In both cases, `WithDatabaseName()` sets the default database. A query can override the connection or database through `IKustoProcessorFactory.Create()`.
 
@@ -199,9 +208,9 @@ Stored query results expire after `CabazureKustoOptions.PagedResultExpiration`, 
 
 ```csharp
 builder.Services.AddCabazureKusto(kusto => kusto
-  .Configure(o =>
+  .Configure("analytics", o =>
   {
-    o.WithHostAddress("https://help.kusto.windows.net/");
+    o.WithHostAddress("https://analytics.kusto.windows.net/");
     o.PagedResultExpiration = TimeSpan.FromMinutes(15);
   }));
 ```
@@ -270,7 +279,7 @@ builder.Services.AddCabazureKusto(kusto => kusto
     mappingName: "RawDataMapping"));
 ```
 
-`AddIngestion<T>()` registers `IKustoIngester<T>` in dependency injection. The ingester automatically uses the configured table, mapping, connection, database, and ingestion mode:
+`AddIngestion<T>()` registers `IKustoIngester<T>` in dependency injection. The ingester automatically uses the configured table, mapping, default connection/database, and ingestion mode:
 
 ```csharp
 public sealed class DataRecordHandler(
@@ -286,6 +295,8 @@ public sealed class DataRecordHandler(
 ```
 
 Both `IEnumerable<T>` and `IAsyncEnumerable<T>` are supported. Records are serialized incrementally as newline-delimited JSON, so the complete input isn't buffered in memory.
+
+The ingestion registration contains only the record type, table, mapping, and default mode. The injected `IKustoIngester<T>` uses the default Kusto connection and database. Use `IKustoIngesterFactory.Create<T>()` to run the same registered ingestion against another named connection or database.
 
 `CabazureKustoOptions.SerializerOptions` is shared by typed query-result materialization and typed ingestion for the configured connection. Its defaults preserve Cabazure.Kusto's existing behavior: camel-case names, case-insensitive matching, string enums, `DateOnly`, numbers read from strings, and ignored unmapped members. Customize it with `ConfigureSerializerOptions()`:
 

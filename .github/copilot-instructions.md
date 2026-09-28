@@ -65,6 +65,8 @@ Primary responsibilities:
 - Register services through `AddCabazureKusto(...)` in `ServiceCollectionExtensions`.
 - Add typed ingestion through `CabazureKustoBuilder.AddIngestion<T>()`; keep the Ingest SDK dependency in `Cabazure.Kusto.Ingest`.
 - Keep support for both inline configuration and `IOptions`-based configuration.
+- Configure named connections through `CabazureKustoBuilder.Configure(connectionName, ...)`, not through named `AddCabazureKusto` overloads.
+- Keep ingestion registration connection/database independent; the injected ingester uses default options and `IKustoIngesterFactory` applies execution-scope overrides.
 - Preserve named connection / named options support in `KustoClientProvider`.
 - When changing configuration behavior, verify both connection-string and host-address based configuration paths.
 
