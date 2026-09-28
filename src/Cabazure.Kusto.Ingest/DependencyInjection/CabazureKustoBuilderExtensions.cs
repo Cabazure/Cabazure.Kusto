@@ -1,10 +1,20 @@
 using Cabazure.Kusto.Ingest;
+using Cabazure.Kusto.Ingest.Internal;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Cabazure.Kusto.DependencyInjection;
 
 public static class CabazureKustoBuilderExtensions
 {
+    public static CabazureKustoBuilder ConfigureIngestion(
+        this CabazureKustoBuilder builder,
+        Action<CabazureKustoIngestOptions> configure)
+    {
+        builder.Services.Configure(configure);
+        return builder;
+    }
+
     public static CabazureKustoBuilder AddIngestion<T>(
         this CabazureKustoBuilder builder,
         string tableName,
@@ -30,12 +40,21 @@ public static class CabazureKustoBuilderExtensions
         }
 
         builder.Services.AddOptions<CabazureKustoIngestOptions>();
+        builder.Services
+            .TryAddSingleton<IKustoIngestClientFactory, KustoIngestClientFactory>();
+        builder.Services
+            .TryAddSingleton<IKustoIngestClientProvider, KustoIngestClientProvider>();
+        builder.Services
+            .TryAddSingleton<IKustoIngesterFactory, KustoIngesterFactory>();
         builder.Services.AddSingleton(
             new KustoIngestion<T>(
                 tableName,
                 mappingName,
                 mode,
                 builder.ConnectionName));
+        builder.Services.AddSingleton(s => s
+            .GetRequiredService<IKustoIngesterFactory>()
+            .Create<T>());
 
         return builder;
     }
