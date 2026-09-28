@@ -39,6 +39,25 @@ public class ExistingStoredQueryHandlerTests
         queryIdProvider.CreateFingerprint(default!).ReturnsForAnyArgs(fingerprint);
     }
 
+    [Fact]
+    public void Constructor_Rejects_Null_SerializerOptions()
+    {
+        Action act = () => new ExistingStoredQueryHandler<string>(
+            queryIdProvider,
+            queryProvider,
+            adminProvider,
+            query,
+            sessionId,
+            maxItemCount,
+            expiration,
+            "v2;;0",
+            null!);
+
+        act.Should()
+            .Throw<ArgumentNullException>()
+            .WithParameterName("serializerOptions");
+    }
+
     private ExistingStoredQueryHandler<string> CreateSut(
         string continuationToken,
         string? sessionId = null)

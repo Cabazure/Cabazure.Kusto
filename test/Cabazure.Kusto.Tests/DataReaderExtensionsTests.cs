@@ -1,5 +1,6 @@
 using System.Data;
 using System.Data.SqlTypes;
+using System.Text.Json;
 using Kusto.Cloud.Platform.Utils;
 using Newtonsoft.Json.Linq;
 
@@ -7,6 +8,9 @@ namespace Cabazure.Kusto.Tests;
 
 public class DataReaderExtensionsTests
 {
+    private readonly JsonSerializerOptions serializerOptions
+        = new CabazureKustoOptions().SerializerOptions;
+
     public enum TestState
     {
         Active,
@@ -29,6 +33,40 @@ public class DataReaderExtensionsTests
     public record NestedTestObject(string Name, int Count);
 
     [Theory, AutoNSubstituteData]
+    public void ReadObjects_Rejects_Null_SerializerOptions(
+        IDataReader dataReader)
+    {
+        Action act = () => dataReader.ReadObjects<TestObject>(null!);
+
+        act.Should()
+            .Throw<ArgumentNullException>()
+            .WithParameterName("options");
+    }
+
+    [Theory, AutoNSubstituteData]
+    public void ReadObject_Rejects_Null_SerializerOptions(
+        IDataReader dataReader)
+    {
+        Action act = () => dataReader.ReadObject<TestObject>(null!);
+
+        act.Should()
+            .Throw<ArgumentNullException>()
+            .WithParameterName("options");
+    }
+
+    [Theory, AutoNSubstituteData]
+    public void ReadObjectsFromNextResult_Rejects_Null_SerializerOptions(
+        IDataReader dataReader)
+    {
+        Action act = () => dataReader
+            .ReadObjectsFromNextResult<TestObject>(null!);
+
+        act.Should()
+            .Throw<ArgumentNullException>()
+            .WithParameterName("options");
+    }
+
+    [Theory, AutoNSubstituteData]
     public void ReadObjects_Will_Return_Objects_Read_From_DataReader(
         List<TestObject> data,
         IDataReader dataReader)
@@ -49,7 +87,7 @@ public class DataReaderExtensionsTests
         dataReader.GetDataTypeName(default).ReturnsForAnyArgs(c => values[index][c.Arg<int>()].GetType().Name);
 
         DataReaderExtensions
-            .ReadObjects<TestObject>(dataReader)
+            .ReadObjects<TestObject>(dataReader, serializerOptions)
             .Should()
             .BeEquivalentTo(data);
     }
@@ -76,7 +114,9 @@ public class DataReaderExtensionsTests
         dataReader.NextResult().Returns(true);
 
         DataReaderExtensions
-            .ReadObjectsFromNextResult<TestObject>(dataReader)
+            .ReadObjectsFromNextResult<TestObject>(
+                dataReader,
+                serializerOptions)
             .Should()
             .BeEquivalentTo(data);
 
@@ -96,7 +136,9 @@ public class DataReaderExtensionsTests
         table.Columns.Add("cabazure_fingerprint", typeof(string));
         table.Rows.Add("a", "b", "c", 1L, "abc123");
 
-        var result = table.CreateDataReader().ReadObjects<TestObject>();
+        var result = table
+            .CreateDataReader()
+            .ReadObjects<TestObject>(serializerOptions);
 
         result
             .Should()
@@ -115,7 +157,8 @@ public class DataReaderExtensionsTests
         reader.Read().Should().BeTrue();
 
         CompatibilityTestObject result
-            = reader.ReadObject<CompatibilityTestObject>();
+            = reader.ReadObject<CompatibilityTestObject>(
+                serializerOptions);
 
         result.Should().Be(new CompatibilityTestObject(
             TestState.Active,
@@ -163,7 +206,8 @@ public class DataReaderExtensionsTests
         dataReader.GetBoolean(default).ReturnsForAnyArgs(c => (bool)values[c.Arg<int>()]);
         dataReader.GetDataTypeName(default).ReturnsForAnyArgs(c => typeNames[c.Arg<int>()]);
 
-        var result = dataReader.ReadObject<RichTestObject>();
+        var result = dataReader.ReadObject<RichTestObject>(
+            serializerOptions);
 
         result.Should().Be(new RichTestObject(
             BoolValue: true,

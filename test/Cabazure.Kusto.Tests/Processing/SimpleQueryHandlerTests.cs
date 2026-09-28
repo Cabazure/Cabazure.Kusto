@@ -8,6 +8,21 @@ namespace Cabazure.Kusto.Tests.Processing;
 public class SimpleQueryHandlerTests
 {
     [Theory, AutoNSubstituteData]
+    public void Constructor_Rejects_Null_SerializerOptions(
+        ICslQueryProvider queryProvider,
+        IKustoQuery<string> query)
+    {
+        Action act = () => new SimpleQueryHandler<string>(
+            queryProvider,
+            query,
+            null!);
+
+        act.Should()
+            .Throw<ArgumentNullException>()
+            .WithParameterName("serializerOptions");
+    }
+
+    [Theory, AutoNSubstituteData]
     public async Task ExecuteAsync_Calls_QueryProvider(
         [Frozen] ICslQueryProvider queryProvider,
         [Frozen] IKustoQuery<string> query,

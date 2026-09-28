@@ -6,10 +6,11 @@ namespace Cabazure.Kusto.Processing;
 public class SimpleQueryHandler<T>(
     ICslQueryProvider queryProvider,
     IKustoQuery<T> query,
-    JsonSerializerOptions? serializerOptions = null) : IScriptHandler<T>
+    JsonSerializerOptions serializerOptions) : IScriptHandler<T>
 {
     private readonly JsonSerializerOptions serializerOptions
-        = serializerOptions ?? DataReaderExtensions.DefaultJsonOption;
+        = serializerOptions
+            ?? throw new ArgumentNullException(nameof(serializerOptions));
 
     public async Task<T?> ExecuteAsync(
         CancellationToken cancellationToken)

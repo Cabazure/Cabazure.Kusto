@@ -9,6 +9,21 @@ namespace Cabazure.Kusto.Tests.Processing;
 public class StreamQueryHandlerTests
 {
     [Theory, AutoNSubstituteData]
+    public void Constructor_Rejects_Null_SerializerOptions(
+        ICslQueryProvider queryProvider,
+        IKustoStreamQuery<string> query)
+    {
+        Action act = () => new StreamQueryHandler<string>(
+            queryProvider,
+            query,
+            null!);
+
+        act.Should()
+            .Throw<ArgumentNullException>()
+            .WithParameterName("serializerOptions");
+    }
+
+    [Theory, AutoNSubstituteData]
     public async Task ExecuteAsync_Calls_QueryProvider(
         [Frozen] ICslQueryProvider queryProvider,
         [Frozen] IKustoStreamQuery<string> query,
@@ -115,7 +130,10 @@ public class StreamQueryHandlerTests
             .ReadResults(default!, default!, default)
             .ReturnsForAnyArgs(_ => YieldUntilCancelled(cts));
 
-        var sut = new StreamQueryHandler<string>(queryProvider, query);
+        var sut = new StreamQueryHandler<string>(
+            queryProvider,
+            query,
+            new CabazureKustoOptions().SerializerOptions);
         var act = async () =>
         {
             await foreach (var item in sut.ExecuteAsync(cts.Token))

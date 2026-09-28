@@ -42,7 +42,26 @@ public class NewStoredQueryHandlerTests
             sessionId,
             maxItemCount,
             expiration,
+            includeTotalCount: false,
             serializerOptions: serializerOptions);
+    }
+
+    [Fact]
+    public void Constructor_Rejects_Null_SerializerOptions()
+    {
+        Action act = () => new NewStoredQueryHandler<string>(
+            queryIdProvider,
+            adminProvider,
+            query,
+            sessionId,
+            maxItemCount,
+            expiration,
+            includeTotalCount: false,
+            serializerOptions: null!);
+
+        act.Should()
+            .Throw<ArgumentNullException>()
+            .WithParameterName("serializerOptions");
     }
 
     [Theory, AutoNSubstituteData]
@@ -69,7 +88,9 @@ public class NewStoredQueryHandlerTests
             query,
             sessionId: null,
             maxItemCount,
-            expiration);
+            expiration,
+            includeTotalCount: false,
+            serializerOptions);
 
         await sut.ExecuteAsync(cancellationToken);
 
@@ -102,7 +123,9 @@ public class NewStoredQueryHandlerTests
             query,
             sessionId: null,
             maxItemCount,
-            expiration);
+            expiration,
+            includeTotalCount: false,
+            serializerOptions);
 
         var result = await sut.ExecuteAsync(cancellationToken);
 
@@ -148,7 +171,9 @@ public class NewStoredQueryHandlerTests
             query,
             sessionId,
             maxItemCount,
-            TimeSpan.FromHours(2));
+            TimeSpan.FromHours(2),
+            includeTotalCount: false,
+            serializerOptions);
 
         await sut.ExecuteAsync(cancellationToken);
 
@@ -306,7 +331,15 @@ public class NewStoredQueryHandlerTests
     }
 
     private NewStoredQueryHandler<string> CreateSut(bool includeTotalCount)
-        => new(queryIdProvider, adminProvider, query, sessionId, maxItemCount, expiration, includeTotalCount);
+        => new(
+            queryIdProvider,
+            adminProvider,
+            query,
+            sessionId,
+            maxItemCount,
+            expiration,
+            includeTotalCount,
+            serializerOptions);
 
     private void SetupStoredQueryResult(
         IDataReader reader,

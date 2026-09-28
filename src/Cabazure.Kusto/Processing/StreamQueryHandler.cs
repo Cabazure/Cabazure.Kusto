@@ -8,10 +8,11 @@ namespace Cabazure.Kusto.Processing;
 public class StreamQueryHandler<T>(
     ICslQueryProvider queryProvider,
     IKustoStreamQuery<T> query,
-    JsonSerializerOptions? serializerOptions = null) : IStreamScriptHandler<T>
+    JsonSerializerOptions serializerOptions) : IStreamScriptHandler<T>
 {
     private readonly JsonSerializerOptions serializerOptions
-        = serializerOptions ?? DataReaderExtensions.DefaultJsonOption;
+        = serializerOptions
+            ?? throw new ArgumentNullException(nameof(serializerOptions));
 
     public async IAsyncEnumerable<T> ExecuteAsync(
         [EnumeratorCancellation] CancellationToken cancellationToken)

@@ -10,12 +10,13 @@ public class NewStoredQueryHandler<T>(
     string? sessionId,
     int maxItemCount,
     TimeSpan expiration,
-    bool includeTotalCount = false,
-    JsonSerializerOptions? serializerOptions = null)
+    bool includeTotalCount,
+    JsonSerializerOptions serializerOptions)
     : IScriptHandler<PagedResult<T>>
 {
     private readonly JsonSerializerOptions serializerOptions
-        = serializerOptions ?? DataReaderExtensions.DefaultJsonOption;
+        = serializerOptions
+            ?? throw new ArgumentNullException(nameof(serializerOptions));
 
     public async Task<PagedResult<T>?> ExecuteAsync(
         CancellationToken cancellationToken)
