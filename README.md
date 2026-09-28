@@ -41,12 +41,26 @@ builder.Services.AddCabazureKusto(kusto => kusto
   .Configure<ConfigureKustoOptions>());
 ```
 
+When options are registered separately, the builder callback can be omitted:
+
+```csharp
+builder.Services.ConfigureOptions<ConfigureKustoOptions>();
+builder.Services.AddCabazureKusto();
+```
+
 Named connections use the overload taking a connection name:
 
 ```csharp
 builder.Services.AddCabazureKusto(
   "analytics",
   kusto => kusto.Configure<ConfigureKustoOptions>());
+```
+
+The named overload also supports external `IConfigureNamedOptions<CabazureKustoOptions>` configuration:
+
+```csharp
+builder.Services.ConfigureOptions<ConfigureKustoOptions>();
+builder.Services.AddCabazureKusto("analytics");
 ```
 
 The connection can use `WithConnectionString()` instead of `WithHostAddress()`. In both cases, `WithDatabaseName()` sets the default database. A query can override the connection or database through `IKustoProcessorFactory.Create()`.

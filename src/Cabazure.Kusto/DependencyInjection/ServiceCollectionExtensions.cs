@@ -10,21 +10,51 @@ namespace Microsoft.Extensions.DependencyInjection;
 public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddCabazureKusto(
+        this IServiceCollection services)
+        => AddCabazureKustoCore(
+            services,
+            connectionName: null,
+            builder: null);
+
+    public static IServiceCollection AddCabazureKusto(
         this IServiceCollection services,
         Action<CabazureKustoBuilder> builder)
-        => AddCabazureKusto(services, null, builder);
+        => AddCabazureKustoCore(
+            services,
+            connectionName: null,
+            builder);
+
+    public static IServiceCollection AddCabazureKusto(
+        this IServiceCollection services,
+        string? connectionName)
+        => AddCabazureKustoCore(
+            services,
+            connectionName,
+            builder: null);
 
     public static IServiceCollection AddCabazureKusto(
         this IServiceCollection services,
         string? connectionName,
         Action<CabazureKustoBuilder> builder)
+        => AddCabazureKustoCore(
+            services,
+            connectionName,
+            builder);
+
+    private static IServiceCollection AddCabazureKustoCore(
+        IServiceCollection services,
+        string? connectionName,
+        Action<CabazureKustoBuilder>? builder)
     {
         services.AddOptions<CabazureKustoOptions>(connectionName);
 
-        var kustoBuilder = new CabazureKustoBuilder(
-            services,
-            connectionName);
-        builder.Invoke(kustoBuilder);
+        if (builder is not null)
+        {
+            var kustoBuilder = new CabazureKustoBuilder(
+                services,
+                connectionName);
+            builder.Invoke(kustoBuilder);
+        }
 
         services
             .TryAddSingleton<IKustoConnectionStringProvider, KustoConnectionStringProvider>();

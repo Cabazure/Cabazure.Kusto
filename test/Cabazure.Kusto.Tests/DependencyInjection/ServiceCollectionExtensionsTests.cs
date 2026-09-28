@@ -7,6 +7,43 @@ namespace Cabazure.Kusto.Tests.DependencyInjection;
 public class ServiceCollectionExtensionsTests
 {
     [Theory, AutoNSubstituteData]
+    public void AddCabazureKusto_Without_Builder_Registers_Default_Processor(
+        ServiceCollection services)
+    {
+        services.AddCabazureKusto();
+
+        ServiceProvider provider = services.BuildServiceProvider();
+        provider
+            .GetRequiredService<IKustoProcessor>()
+            .Should()
+            .NotBeNull();
+        provider
+            .GetRequiredService<IOptions<CabazureKustoOptions>>()
+            .Value
+            .Should()
+            .NotBeNull();
+    }
+
+    [Theory, AutoNSubstituteData]
+    public void AddCabazureKusto_Named_Without_Builder_Registers_Options(
+        ServiceCollection services,
+        string connectionName)
+    {
+        services.AddCabazureKusto(connectionName);
+
+        ServiceProvider provider = services.BuildServiceProvider();
+        provider
+            .GetRequiredService<IOptionsMonitor<CabazureKustoOptions>>()
+            .Get(connectionName)
+            .Should()
+            .NotBeNull();
+        provider
+            .GetService<IKustoProcessor>()
+            .Should()
+            .BeNull();
+    }
+
+    [Theory, AutoNSubstituteData]
     public void AddCabazureKusto_Invokes_Default_Builder(
         ServiceCollection services,
         [Substitute] Action<CabazureKustoBuilder> builder)
