@@ -12,7 +12,9 @@ internal class KustoIngestClientProvider(
         string? ConnectionName,
         KustoIngestionMode Mode);
 
-    private readonly ConcurrentDictionary<ClientKey, IKustoIngestClient> clients
+    private readonly ConcurrentDictionary<
+        ClientKey,
+        Lazy<IKustoIngestClient>> clients
         = new();
 
     public IKustoIngestClient GetClient(
@@ -20,7 +22,10 @@ internal class KustoIngestClientProvider(
         KustoIngestionMode mode)
         => clients.GetOrAdd(
             new(connectionName, mode),
-            CreateClient);
+            key => new(
+                () => CreateClient(key),
+                LazyThreadSafetyMode.ExecutionAndPublication))
+            .Value;
 
     private IKustoIngestClient CreateClient(ClientKey key)
         => clientFactory.Create(
@@ -31,9 +36,12 @@ internal class KustoIngestClientProvider(
     public void Dispose()
     {
         GC.SuppressFinalize(this);
-        foreach (IKustoIngestClient client in clients.Values)
+        foreach (Lazy<IKustoIngestClient> client in clients.Values)
         {
-            client.Dispose();
+            if (client.IsValueCreated)
+            {
+                client.Value.Dispose();
+            }
         }
     }
 }

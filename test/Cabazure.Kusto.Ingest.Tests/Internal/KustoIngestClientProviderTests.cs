@@ -7,6 +7,53 @@ namespace Cabazure.Kusto.Ingest.Tests.Internal;
 public class KustoIngestClientProviderTests
 {
     [Theory, AutoNSubstituteData]
+    public async Task GetClient_Creates_One_Client_For_Concurrent_Requests(
+        [Frozen] IKustoConnectionStringProvider connectionStringProvider,
+        IKustoIngestClient client,
+        string connectionName,
+        KustoIngestionMode mode)
+    {
+        var creationStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseCreation = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var connectionString = new KustoConnectionStringBuilder(
+            "https://example.kusto.windows.net");
+        connectionStringProvider
+            .GetConnectionString(connectionName)
+            .Returns(connectionString);
+        IKustoIngestClientFactory clientFactory
+            = Substitute.For<IKustoIngestClientFactory>();
+        clientFactory
+            .Create(mode, connectionString)
+            .Returns(_ =>
+            {
+                creationStarted.SetResult();
+                releaseCreation.Task.GetAwaiter().GetResult();
+                return client;
+            });
+        using var sut = new KustoIngestClientProvider(
+            connectionStringProvider,
+            clientFactory);
+
+        Task<IKustoIngestClient>[] requests = Enumerable
+            .Range(0, 8)
+            .Select(_ => Task.Run(
+                () => sut.GetClient(connectionName, mode)))
+            .ToArray();
+
+        await creationStarted.Task;
+        await Task.Delay(100);
+        clientFactory.Received(1).Create(mode, connectionString);
+        releaseCreation.SetResult();
+
+        IKustoIngestClient[] results = await Task.WhenAll(requests);
+
+        results.Should().AllBeEquivalentTo(client);
+        clientFactory.Received(1).Create(mode, connectionString);
+    }
+
+    [Theory, AutoNSubstituteData]
     public void GetClient_Caches_Client_Per_Connection_And_Mode(
         [Frozen] IKustoConnectionStringProvider connectionStringProvider,
         IKustoIngestClient client,
