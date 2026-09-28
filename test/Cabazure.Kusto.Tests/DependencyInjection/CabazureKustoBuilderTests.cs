@@ -8,6 +8,8 @@ namespace Cabazure.Kusto.Tests.DependencyInjection;
 
 public class CabazureKustoBuilderTests
 {
+    public sealed record ConfiguredDatabase(string Name);
+
     public class ConfigureKustoOptions
         : IConfigureOptions<CabazureKustoOptions>
     {
@@ -15,17 +17,33 @@ public class CabazureKustoBuilderTests
             => options.DatabaseName = "configured";
     }
 
-    [Theory, AutoNSubstituteData]
-    public void Exposes_Services_And_ConnectionName(
-        ServiceCollection services,
-        string connectionName)
+    public class ConfigureNamedKustoOptions
+        : IConfigureNamedOptions<CabazureKustoOptions>
     {
-        var sut = new CabazureKustoBuilder(
-            services,
-            connectionName);
+        public void Configure(CabazureKustoOptions options)
+            => Configure(Options.DefaultName, options);
+
+        public void Configure(
+            string? name,
+            CabazureKustoOptions options)
+            => options.DatabaseName = name;
+    }
+
+    public class ConfigureInjectedKustoOptions(
+        ConfiguredDatabase database)
+        : IConfigureOptions<CabazureKustoOptions>
+    {
+        public void Configure(CabazureKustoOptions options)
+            => options.DatabaseName = database.Name;
+    }
+
+    [Theory, AutoNSubstituteData]
+    public void Exposes_Services(
+        ServiceCollection services)
+    {
+        var sut = new CabazureKustoBuilder(services);
 
         sut.Services.Should().BeSameAs(services);
-        sut.ConnectionName.Should().Be(connectionName);
     }
 
     [Theory, AutoNSubstituteData]
@@ -34,11 +52,11 @@ public class CabazureKustoBuilderTests
         string connectionName,
         string databaseName)
     {
-        var sut = new CabazureKustoBuilder(
-            services,
-            connectionName);
+        var sut = new CabazureKustoBuilder(services);
 
-        sut.Configure(o => o.DatabaseName = databaseName);
+        sut.Configure(
+            connectionName,
+            o => o.DatabaseName = databaseName);
 
         services
             .BuildServiceProvider()
@@ -50,16 +68,44 @@ public class CabazureKustoBuilderTests
     }
 
     [Theory, AutoNSubstituteData]
+    public void Configure_Registers_Multiple_Named_Options(
+        ServiceCollection services,
+        string firstConnectionName,
+        string secondConnectionName,
+        string firstDatabaseName,
+        string secondDatabaseName)
+    {
+        var sut = new CabazureKustoBuilder(services);
+
+        sut.Configure(
+            firstConnectionName,
+            options => options.DatabaseName = firstDatabaseName);
+        sut.Configure(
+            secondConnectionName,
+            options => options.DatabaseName = secondDatabaseName);
+
+        IOptionsMonitor<CabazureKustoOptions> monitor = services
+            .BuildServiceProvider()
+            .GetRequiredService<IOptionsMonitor<CabazureKustoOptions>>();
+        monitor.Get(firstConnectionName).DatabaseName
+            .Should()
+            .Be(firstDatabaseName);
+        monitor.Get(secondConnectionName).DatabaseName
+            .Should()
+            .Be(secondDatabaseName);
+    }
+
+    [Theory, AutoNSubstituteData]
     public void Configure_Customizes_Seeded_SerializerOptions(
         ServiceCollection services,
         string connectionName)
     {
-        var sut = new CabazureKustoBuilder(
-            services,
-            connectionName);
+        var sut = new CabazureKustoBuilder(services);
 
-        sut.Configure(o => o.ConfigureSerializerOptions(
-            json => json.PropertyNamingPolicy = null));
+        sut.Configure(
+            connectionName,
+            o => o.ConfigureSerializerOptions(
+                json => json.PropertyNamingPolicy = null));
 
         JsonSerializerOptions serializerOptions = services
             .BuildServiceProvider()
@@ -78,9 +124,7 @@ public class CabazureKustoBuilderTests
     public void Configure_Registers_ConfigureOptions(
         ServiceCollection services)
     {
-        var sut = new CabazureKustoBuilder(
-            services,
-            connectionName: null);
+        var sut = new CabazureKustoBuilder(services);
 
         sut.Configure<ConfigureKustoOptions>();
 
@@ -91,5 +135,55 @@ public class CabazureKustoBuilderTests
             .DatabaseName
             .Should()
             .Be("configured");
+    }
+
+    [Theory, AutoNSubstituteData]
+    public void Configure_Registers_Named_ConfigureOptions(
+        ServiceCollection services,
+        string connectionName)
+    {
+        var sut = new CabazureKustoBuilder(services);
+
+        sut.Configure<ConfigureNamedKustoOptions>();
+
+        services
+            .BuildServiceProvider()
+            .GetRequiredService<IOptionsMonitor<CabazureKustoOptions>>()
+            .Get(connectionName)
+            .DatabaseName
+            .Should()
+            .Be(connectionName);
+    }
+
+    [Theory, AutoNSubstituteData]
+    public void Configure_Resolves_ConfigureOptions_Dependencies(
+        ServiceCollection services,
+        ConfiguredDatabase database)
+    {
+        services.AddSingleton(database);
+        var sut = new CabazureKustoBuilder(services);
+
+        sut.Configure<ConfigureInjectedKustoOptions>();
+
+        services
+            .BuildServiceProvider()
+            .GetRequiredService<IOptions<CabazureKustoOptions>>()
+            .Value
+            .DatabaseName
+            .Should()
+            .Be(database.Name);
+    }
+
+    [Theory, AutoNSubstituteData]
+    public void Configure_Named_Rejects_Empty_ConnectionName(
+        ServiceCollection services)
+    {
+        var sut = new CabazureKustoBuilder(services);
+
+        Action act = () => sut.Configure(
+            string.Empty,
+            _ => { });
+
+        act.Should().Throw<ArgumentException>();
     }
 }

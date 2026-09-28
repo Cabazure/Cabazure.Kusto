@@ -25,26 +25,7 @@ public class ServiceCollectionExtensionsTests
     }
 
     [Theory, AutoNSubstituteData]
-    public void AddCabazureKusto_Named_Without_Builder_Registers_Options(
-        ServiceCollection services,
-        string connectionName)
-    {
-        services.AddCabazureKusto(connectionName);
-
-        ServiceProvider provider = services.BuildServiceProvider();
-        provider
-            .GetRequiredService<IOptionsMonitor<CabazureKustoOptions>>()
-            .Get(connectionName)
-            .Should()
-            .NotBeNull();
-        provider
-            .GetService<IKustoProcessor>()
-            .Should()
-            .BeNull();
-    }
-
-    [Theory, AutoNSubstituteData]
-    public void AddCabazureKusto_Invokes_Default_Builder(
+    public void AddCabazureKusto_Invokes_Builder(
         ServiceCollection services,
         [Substitute] Action<CabazureKustoBuilder> builder)
     {
@@ -52,22 +33,7 @@ public class ServiceCollectionExtensionsTests
 
         builder.Received(1).Invoke(
             Arg.Is<CabazureKustoBuilder>(b
-                => b.Services == services
-                && b.ConnectionName == null));
-    }
-
-    [Theory, AutoNSubstituteData]
-    public void AddCabazureKusto_Invokes_Named_Builder(
-        ServiceCollection services,
-        string connectionName,
-        [Substitute] Action<CabazureKustoBuilder> builder)
-    {
-        services.AddCabazureKusto(connectionName, builder);
-
-        builder.Received(1).Invoke(
-            Arg.Is<CabazureKustoBuilder>(b
-                => b.Services == services
-                && b.ConnectionName == connectionName));
+                => b.Services == services));
     }
 
     [Theory, AutoNSubstituteData]
@@ -84,31 +50,21 @@ public class ServiceCollectionExtensionsTests
     }
 
     [Theory, AutoNSubstituteData]
-    public void AddCabazureKusto_Named_Does_Not_Register_Default_Processor(
-        ServiceCollection services,
-        string connectionName)
-    {
-        services.AddCabazureKusto(connectionName, _ => { });
-
-        services
-            .BuildServiceProvider()
-            .GetService<IKustoProcessor>()
-            .Should()
-            .BeNull();
-    }
-
-    [Theory, AutoNSubstituteData]
     public void AddCabazureKusto_Registers_Named_Options(
         ServiceCollection services,
-        string connectionName)
+        string connectionName,
+        string databaseName)
     {
-        services.AddCabazureKusto(connectionName, _ => { });
+        services.AddCabazureKusto(builder => builder.Configure(
+            connectionName,
+            options => options.DatabaseName = databaseName));
 
         services
             .BuildServiceProvider()
             .GetRequiredService<IOptionsMonitor<CabazureKustoOptions>>()
             .Get(connectionName)
+            .DatabaseName
             .Should()
-            .NotBeNull();
+            .Be(databaseName);
     }
 }

@@ -4,17 +4,24 @@ using Microsoft.Extensions.Options;
 namespace Cabazure.Kusto.DependencyInjection;
 
 public class CabazureKustoBuilder(
-    IServiceCollection services,
-    string? connectionName)
+    IServiceCollection services)
 {
     public IServiceCollection Services { get; } = services;
-
-    public string? ConnectionName { get; } = connectionName;
 
     public CabazureKustoBuilder Configure(
         Action<CabazureKustoOptions> configure)
     {
-        Services.Configure(ConnectionName, configure);
+        Services.Configure(configure);
+        return this;
+    }
+
+    public CabazureKustoBuilder Configure(
+        string connectionName,
+        Action<CabazureKustoOptions> configure)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(connectionName);
+
+        Services.Configure(connectionName, configure);
         return this;
     }
 

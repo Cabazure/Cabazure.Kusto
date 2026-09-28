@@ -11,48 +11,22 @@ public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddCabazureKusto(
         this IServiceCollection services)
-        => AddCabazureKustoCore(
-            services,
-            connectionName: null,
-            builder: null);
+        => AddCabazureKustoCore(services, builder: null);
 
     public static IServiceCollection AddCabazureKusto(
         this IServiceCollection services,
         Action<CabazureKustoBuilder> builder)
-        => AddCabazureKustoCore(
-            services,
-            connectionName: null,
-            builder);
-
-    public static IServiceCollection AddCabazureKusto(
-        this IServiceCollection services,
-        string? connectionName)
-        => AddCabazureKustoCore(
-            services,
-            connectionName,
-            builder: null);
-
-    public static IServiceCollection AddCabazureKusto(
-        this IServiceCollection services,
-        string? connectionName,
-        Action<CabazureKustoBuilder> builder)
-        => AddCabazureKustoCore(
-            services,
-            connectionName,
-            builder);
+        => AddCabazureKustoCore(services, builder);
 
     private static IServiceCollection AddCabazureKustoCore(
         IServiceCollection services,
-        string? connectionName,
         Action<CabazureKustoBuilder>? builder)
     {
-        services.AddOptions<CabazureKustoOptions>(connectionName);
+        services.AddOptions<CabazureKustoOptions>();
 
         if (builder is not null)
         {
-            var kustoBuilder = new CabazureKustoBuilder(
-                services,
-                connectionName);
+            var kustoBuilder = new CabazureKustoBuilder(services);
             builder.Invoke(kustoBuilder);
         }
 
@@ -67,13 +41,10 @@ public static class ServiceCollectionExtensions
         services
             .TryAddSingleton<IKustoProcessorFactory, KustoProcessorFactory>();
 
-        if (connectionName == null)
-        {
-            services
-                .TryAddSingleton(s => s
-                    .GetRequiredService<IKustoProcessorFactory>()
-                    .Create());
-        }
+        services
+            .TryAddSingleton(s => s
+                .GetRequiredService<IKustoProcessorFactory>()
+                .Create());
 
         return services;
     }
