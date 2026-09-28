@@ -261,7 +261,7 @@ public class ExistingStoredQueryHandlerTests
                 Arg.Is<string>(s => s.StartsWith(".set-or-replace")),
                 Arg.Any<ClientRequestProperties>());
         _ = queryProvider
-            .Received(2)
+            .Received(3)
             .ExecuteQueryAsync(
                 Arg.Any<string>(),
                 Arg.Any<string>(),

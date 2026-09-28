@@ -26,7 +26,8 @@ public class ExistingStoredQueryHandler<T>(
         var totalCount = token.TotalCount;
 
         var items = await ReadPageAsync(queryId, fingerprint, token.ItemsReturned, cancellationToken);
-        if (items is null or { Count: 0 })
+        if (items is null
+            || items.Count == 0 && !await HasMatchingRowsAsync(queryId, fingerprint, cancellationToken))
         {
             // The stored result has expired or been replaced by another query, so re-create it.
             await RecreateAsync(queryId, fingerprint);
@@ -96,5 +97,27 @@ public class ExistingStoredQueryHandler<T>(
                     previewCount: 1,
                     expiration),
                 query.GetRequestProperties());
+    }
+
+    private async Task<bool> HasMatchingRowsAsync(
+        string queryId,
+        string fingerprint,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var reader = await queryProvider
+                .ExecuteQueryAsync(
+                    databaseName: null,
+                    StoredQueryResultCommands.CreateFingerprintProbeQuery(queryId, fingerprint),
+                    query.GetRequestProperties(),
+                    cancellationToken);
+
+            return reader.Read();
+        }
+        catch (SemanticException)
+        {
+            return false;
+        }
     }
 }

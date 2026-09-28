@@ -28,6 +28,13 @@ public static class StoredQueryResultCommands
          + $"| where {FingerprintColumn} == '{fingerprint}' "
          + $"and {RowNumberColumn} between({itemsReturned + 1} .. {itemsReturned + maxItemCount})";
 
+    public static string CreateFingerprintProbeQuery(
+        string queryId,
+        string fingerprint)
+        => $"stored_query_result('{queryId}') "
+         + $"| where {FingerprintColumn} == '{fingerprint}' "
+         + "| take 1";
+
     public static async Task<long?> GetTotalCountAsync(
         ICslAdminProvider adminProvider,
         IKustoScript query,
