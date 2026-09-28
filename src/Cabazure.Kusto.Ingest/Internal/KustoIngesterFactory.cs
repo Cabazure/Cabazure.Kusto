@@ -17,23 +17,21 @@ internal class KustoIngesterFactory(
     {
         KustoIngestion<T> ingestion = serviceProvider
             .GetRequiredService<KustoIngestion<T>>();
-        string? effectiveConnectionName
-            = connectionName ?? ingestion.ConnectionName;
         string effectiveDatabaseName = connectionStringProvider
             .GetConnectionString(
-                effectiveConnectionName,
+                connectionName,
                 databaseName)
             .InitialCatalog
             ?? throw new InvalidOperationException(
-                $"Missing database configuration for kusto connection `{effectiveConnectionName}`.");
+                $"Missing database configuration for kusto connection `{connectionName}`.");
 
         return new KustoIngester<T>(
             clientProvider,
             ingestion,
             optionsMonitor
-                .Get(effectiveConnectionName)
+                .Get(connectionName)
                 .SerializerOptions,
-            effectiveConnectionName,
+            connectionName,
             effectiveDatabaseName,
             mode ?? ingestion.Mode);
     }

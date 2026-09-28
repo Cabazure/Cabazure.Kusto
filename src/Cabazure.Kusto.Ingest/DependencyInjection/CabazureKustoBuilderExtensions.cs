@@ -41,8 +41,7 @@ public static class CabazureKustoBuilderExtensions
             new KustoIngestion<T>(
                 tableName,
                 mappingName,
-                mode,
-                builder.ConnectionName));
+                mode));
         builder.Services.AddSingleton(s => s
             .GetRequiredService<IKustoIngesterFactory>()
             .Create<T>());

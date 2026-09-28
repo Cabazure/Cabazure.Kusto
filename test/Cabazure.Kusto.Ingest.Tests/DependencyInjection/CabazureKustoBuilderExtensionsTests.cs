@@ -1,4 +1,5 @@
 using Cabazure.Kusto.DependencyInjection;
+using Cabazure.Kusto.Ingest.Internal;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Cabazure.Kusto.Ingest.Tests.DependencyInjection;
@@ -10,13 +11,10 @@ public class CabazureKustoBuilderExtensionsTests
     [Theory, AutoNSubstituteData]
     public void AddIngestion_Registers_Typed_Ingestion(
         ServiceCollection services,
-        string connectionName,
         string tableName,
         string mappingName)
     {
-        var builder = new CabazureKustoBuilder(
-            services,
-            connectionName);
+        var builder = new CabazureKustoBuilder(services);
 
         CabazureKustoBuilder result = builder.AddIngestion<Item>(
             tableName,
@@ -30,8 +28,7 @@ public class CabazureKustoBuilderExtensionsTests
             .Be(new KustoIngestion<Item>(
                 tableName,
                 mappingName,
-                KustoIngestionMode.ManagedStreaming,
-                connectionName));
+                KustoIngestionMode.ManagedStreaming));
     }
 
     [Theory, AutoNSubstituteData]
@@ -41,9 +38,7 @@ public class CabazureKustoBuilderExtensionsTests
         string mappingName,
         KustoIngestionMode mode)
     {
-        var builder = new CabazureKustoBuilder(
-            services,
-            connectionName: null);
+        var builder = new CabazureKustoBuilder(services);
 
         builder.AddIngestion<Item>(
             tableName,
@@ -64,9 +59,7 @@ public class CabazureKustoBuilderExtensionsTests
         string tableName,
         string mappingName)
     {
-        var builder = new CabazureKustoBuilder(
-            services,
-            connectionName: null);
+        var builder = new CabazureKustoBuilder(services);
         builder.AddIngestion<Item>(
             tableName,
             mappingName);
@@ -85,9 +78,7 @@ public class CabazureKustoBuilderExtensionsTests
         ServiceCollection services,
         string mappingName)
     {
-        var builder = new CabazureKustoBuilder(
-            services,
-            connectionName: null);
+        var builder = new CabazureKustoBuilder(services);
 
         Action act = () => builder.AddIngestion<Item>(
             string.Empty,
@@ -101,9 +92,7 @@ public class CabazureKustoBuilderExtensionsTests
         ServiceCollection services,
         string tableName)
     {
-        var builder = new CabazureKustoBuilder(
-            services,
-            connectionName: null);
+        var builder = new CabazureKustoBuilder(services);
 
         Action act = () => builder.AddIngestion<Item>(
             tableName,
@@ -113,13 +102,16 @@ public class CabazureKustoBuilderExtensionsTests
     }
 
     [Fact]
-    public void AddIngestion_Registers_Typed_Ingester()
+    public void AddIngestion_Registers_Typed_Ingester_With_Default_Connection()
     {
         var services = new ServiceCollection();
         services.AddCabazureKusto(builder => builder
             .Configure(options => options
                 .WithHostAddress("https://example.kusto.windows.net")
                 .WithDatabaseName("database"))
+            .Configure("analytics", options => options
+                .WithHostAddress("https://analytics.kusto.windows.net")
+                .WithDatabaseName("analytics"))
             .AddIngestion<Item>(
                 "table",
                 "mapping"));
@@ -128,7 +120,12 @@ public class CabazureKustoBuilderExtensionsTests
             .BuildServiceProvider()
             .GetRequiredService<IKustoIngester<Item>>();
 
-        ingester.Should().NotBeNull();
+        KustoIngester<Item> typedIngester = ingester
+            .Should()
+            .BeOfType<KustoIngester<Item>>()
+            .Subject;
+        typedIngester.ConnectionName.Should().BeNull();
+        typedIngester.DatabaseName.Should().Be("database");
     }
 
 }

@@ -12,7 +12,6 @@ public class KustoIngesterFactoryTests
     [Theory, AutoNSubstituteData]
     public void Create_Uses_Registration_Defaults(
         [Frozen] IKustoConnectionStringProvider connectionStringProvider,
-        string connectionName,
         string databaseName,
         string tableName,
         string mappingName)
@@ -24,9 +23,9 @@ public class KustoIngesterFactoryTests
             = Substitute.For<IKustoIngestClientProvider>();
         var optionsMonitor = Substitute.For<
             IOptionsMonitor<CabazureKustoOptions>>();
-        optionsMonitor.Get(connectionName).Returns(options);
+        optionsMonitor.Get(null).Returns(options);
         connectionStringProvider
-            .GetConnectionString(connectionName, null)
+            .GetConnectionString(null, null)
             .Returns(new KustoConnectionStringBuilder(
                 "https://example.kusto.windows.net")
             {
@@ -36,8 +35,7 @@ public class KustoIngesterFactoryTests
             .AddSingleton(new KustoIngestion<Item>(
                 tableName,
                 mappingName,
-                KustoIngestionMode.Queued,
-                connectionName))
+                KustoIngestionMode.Queued))
             .BuildServiceProvider();
         var sut = new KustoIngesterFactory(
             serviceProvider,
@@ -50,7 +48,7 @@ public class KustoIngesterFactoryTests
         var ingester = result.Should()
             .BeOfType<KustoIngester<Item>>()
             .Subject;
-        ingester.ConnectionName.Should().Be(connectionName);
+        ingester.ConnectionName.Should().BeNull();
         ingester.DatabaseName.Should().Be(databaseName);
         ingester.Mode.Should().Be(KustoIngestionMode.Queued);
         ingester.SerializerOptions.Should().BeSameAs(serializerOptions);
@@ -59,7 +57,6 @@ public class KustoIngesterFactoryTests
     [Theory, AutoNSubstituteData]
     public void Create_Applies_Overrides(
         [Frozen] IKustoConnectionStringProvider connectionStringProvider,
-        string configuredConnectionName,
         string requestedConnectionName,
         string requestedDatabaseName,
         string tableName,
@@ -86,8 +83,7 @@ public class KustoIngesterFactoryTests
             .AddSingleton(new KustoIngestion<Item>(
                 tableName,
                 mappingName,
-                KustoIngestionMode.ManagedStreaming,
-                configuredConnectionName))
+                KustoIngestionMode.ManagedStreaming))
             .BuildServiceProvider();
         var sut = new KustoIngesterFactory(
             serviceProvider,

@@ -481,8 +481,7 @@ public class KustoIngesterTests
             new KustoIngestion<Item>(
                 tableName,
                 mappingName,
-                mode,
-                ConnectionName: null),
+                mode),
             serializerOptions ?? new(JsonSerializerDefaults.Web),
             connectionName: null,
             databaseName,
