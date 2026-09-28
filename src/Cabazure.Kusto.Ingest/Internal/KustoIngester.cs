@@ -29,9 +29,13 @@ internal class KustoIngester<T>(
     public Task<KustoIngestionResult> IngestAsync(
         IEnumerable<T> items,
         CancellationToken cancellationToken = default)
-        => IngestAsync(
+    {
+        ArgumentNullException.ThrowIfNull(items);
+
+        return IngestAsync(
             ToAsyncEnumerable(items, cancellationToken),
             cancellationToken);
+    }
 
     public async Task<KustoIngestionResult> IngestAsync(
         IAsyncEnumerable<T> items,
@@ -192,8 +196,6 @@ internal class KustoIngester<T>(
         IEnumerable<T> items,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(items);
-
         foreach (T item in items)
         {
             cancellationToken.ThrowIfCancellationRequested();

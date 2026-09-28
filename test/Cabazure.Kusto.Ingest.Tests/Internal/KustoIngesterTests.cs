@@ -12,6 +12,28 @@ public class KustoIngesterTests
     public record Item(string Value);
 
     [Theory, AutoNSubstituteData]
+    public void IngestAsync_Rejects_Null_Enumerable_Before_Client_Resolution(
+        string tableName,
+        string mappingName,
+        string databaseName)
+    {
+        IKustoIngestClientProvider clientProvider
+            = Substitute.For<IKustoIngestClientProvider>();
+        KustoIngester<Item> sut = CreateSut(
+            clientProvider,
+            tableName,
+            mappingName,
+            databaseName);
+
+        Action act = () => sut.IngestAsync((IEnumerable<Item>)null!);
+
+        act.Should()
+            .Throw<ArgumentNullException>()
+            .WithParameterName("items");
+        clientProvider.ReceivedCalls().Should().BeEmpty();
+    }
+
+    [Theory, AutoNSubstituteData]
     public async Task IngestAsync_Serializes_Items_As_Json_Lines(
         IKustoIngestClient client,
         IKustoIngestionResult sdkResult,
