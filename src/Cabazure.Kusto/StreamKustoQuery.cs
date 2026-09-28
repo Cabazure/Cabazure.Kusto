@@ -6,14 +6,6 @@ namespace Cabazure.Kusto;
 
 public abstract record StreamKustoQuery<T> : KustoScript, IKustoStreamQuery<T>
 {
-    public virtual IAsyncEnumerable<T> ReadResults(
-        IDataReader reader,
-        CancellationToken cancellationToken = default)
-        => ReadResults(
-            reader,
-            DataReaderExtensions.DefaultJsonOption,
-            cancellationToken);
-
     public virtual async IAsyncEnumerable<T> ReadResults(
         IDataReader reader,
         JsonSerializerOptions serializerOptions,
