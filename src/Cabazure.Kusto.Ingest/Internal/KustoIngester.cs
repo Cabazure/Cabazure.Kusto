@@ -23,6 +23,9 @@ internal class KustoIngester<T>(
 
     internal KustoIngestionMode Mode { get; } = mode;
 
+    internal JsonSerializerOptions SerializerOptions { get; }
+        = serializerOptions;
+
     public Task<KustoIngestionResult> IngestAsync(
         IEnumerable<T> items,
         CancellationToken cancellationToken = default)
@@ -146,7 +149,7 @@ internal class KustoIngester<T>(
                 await JsonSerializer.SerializeAsync(
                     stream,
                     item,
-                    serializerOptions,
+                    SerializerOptions,
                     cancellationToken);
                 await stream.WriteAsync(
                     "\n"u8.ToArray(),

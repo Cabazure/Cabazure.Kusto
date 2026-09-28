@@ -17,8 +17,16 @@ public class KustoIngesterFactoryTests
         string tableName,
         string mappingName)
     {
+        var serializerOptions = new System.Text.Json.JsonSerializerOptions();
         IKustoIngestClientProvider clientProvider
             = Substitute.For<IKustoIngestClientProvider>();
+        var optionsMonitor = Substitute.For<
+            IOptionsMonitor<CabazureKustoOptions>>();
+        optionsMonitor.Get(connectionName).Returns(
+            new CabazureKustoOptions
+            {
+                SerializerOptions = serializerOptions,
+            });
         connectionStringProvider
             .GetConnectionString(connectionName, null)
             .Returns(new KustoConnectionStringBuilder(
@@ -37,7 +45,7 @@ public class KustoIngesterFactoryTests
             serviceProvider,
             clientProvider,
             connectionStringProvider,
-            Options.Create(new CabazureKustoIngestOptions()));
+            optionsMonitor);
 
         IKustoIngester<Item> result = sut.Create<Item>();
 
@@ -47,6 +55,7 @@ public class KustoIngesterFactoryTests
         ingester.ConnectionName.Should().Be(connectionName);
         ingester.DatabaseName.Should().Be(databaseName);
         ingester.Mode.Should().Be(KustoIngestionMode.Queued);
+        ingester.SerializerOptions.Should().BeSameAs(serializerOptions);
     }
 
     [Theory, AutoNSubstituteData]
@@ -58,8 +67,16 @@ public class KustoIngesterFactoryTests
         string tableName,
         string mappingName)
     {
+        var serializerOptions = new System.Text.Json.JsonSerializerOptions();
         IKustoIngestClientProvider clientProvider
             = Substitute.For<IKustoIngestClientProvider>();
+        var optionsMonitor = Substitute.For<
+            IOptionsMonitor<CabazureKustoOptions>>();
+        optionsMonitor.Get(requestedConnectionName).Returns(
+            new CabazureKustoOptions
+            {
+                SerializerOptions = serializerOptions,
+            });
         connectionStringProvider
             .GetConnectionString(
                 requestedConnectionName,
@@ -80,7 +97,7 @@ public class KustoIngesterFactoryTests
             serviceProvider,
             clientProvider,
             connectionStringProvider,
-            Options.Create(new CabazureKustoIngestOptions()));
+            optionsMonitor);
 
         IKustoIngester<Item> result = sut.Create<Item>(
             requestedConnectionName,
@@ -93,5 +110,7 @@ public class KustoIngesterFactoryTests
         ingester.ConnectionName.Should().Be(requestedConnectionName);
         ingester.DatabaseName.Should().Be(requestedDatabaseName);
         ingester.Mode.Should().Be(KustoIngestionMode.Streaming);
+        ingester.SerializerOptions.Should().BeSameAs(serializerOptions);
+        optionsMonitor.Received(1).Get(requestedConnectionName);
     }
 }

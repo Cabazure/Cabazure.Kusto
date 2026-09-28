@@ -7,14 +7,6 @@ namespace Cabazure.Kusto.DependencyInjection;
 
 public static class CabazureKustoBuilderExtensions
 {
-    public static CabazureKustoBuilder ConfigureIngestion(
-        this CabazureKustoBuilder builder,
-        Action<CabazureKustoIngestOptions> configure)
-    {
-        builder.Services.Configure(configure);
-        return builder;
-    }
-
     public static CabazureKustoBuilder AddIngestion<T>(
         this CabazureKustoBuilder builder,
         string tableName,
@@ -39,7 +31,6 @@ public static class CabazureKustoBuilderExtensions
                 $"An ingestion is already registered for `{typeof(T).FullName}`.");
         }
 
-        builder.Services.AddOptions<CabazureKustoIngestOptions>();
         builder.Services
             .TryAddSingleton<IKustoIngestClientFactory, KustoIngestClientFactory>();
         builder.Services

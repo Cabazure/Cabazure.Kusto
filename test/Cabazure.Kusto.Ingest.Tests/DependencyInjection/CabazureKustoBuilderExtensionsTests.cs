@@ -131,25 +131,4 @@ public class CabazureKustoBuilderExtensionsTests
         ingester.Should().NotBeNull();
     }
 
-    [Fact]
-    public void ConfigureIngestion_Configures_Serializer()
-    {
-        var services = new ServiceCollection();
-        var builder = new CabazureKustoBuilder(
-            services,
-            connectionName: null);
-        var serializerOptions = new System.Text.Json.JsonSerializerOptions();
-
-        builder.ConfigureIngestion(
-            options => options.SerializerOptions = serializerOptions);
-
-        services
-            .BuildServiceProvider()
-            .GetRequiredService<
-                Microsoft.Extensions.Options.IOptions<CabazureKustoIngestOptions>>()
-            .Value
-            .SerializerOptions
-            .Should()
-            .BeSameAs(serializerOptions);
-    }
 }

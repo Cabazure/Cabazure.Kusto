@@ -7,7 +7,7 @@ internal class KustoIngesterFactory(
     IServiceProvider serviceProvider,
     IKustoIngestClientProvider clientProvider,
     IKustoConnectionStringProvider connectionStringProvider,
-    IOptions<CabazureKustoIngestOptions> options)
+    IOptionsMonitor<CabazureKustoOptions> optionsMonitor)
     : IKustoIngesterFactory
 {
     public IKustoIngester<T> Create<T>(
@@ -30,7 +30,9 @@ internal class KustoIngesterFactory(
         return new KustoIngester<T>(
             clientProvider,
             ingestion,
-            options.Value.SerializerOptions,
+            optionsMonitor
+                .Get(effectiveConnectionName)
+                .SerializerOptions,
             effectiveConnectionName,
             effectiveDatabaseName,
             mode ?? ingestion.Mode);
