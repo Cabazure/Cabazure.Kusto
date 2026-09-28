@@ -1,5 +1,6 @@
 using System.Data;
 using System.Data.SqlTypes;
+using System.Globalization;
 using System.Text.Json;
 using Kusto.Cloud.Platform.Utils;
 using Newtonsoft.Json.Linq;
@@ -31,6 +32,26 @@ public class DataReaderExtensionsTests
         DateOnly DateOnlyValue);
 
     public record NestedTestObject(string Name, int Count);
+
+    [Fact]
+    public void DateOnlyJsonConverter_Writes_Invariant_Iso_Date()
+    {
+        CultureInfo originalCulture = CultureInfo.CurrentCulture;
+        try
+        {
+            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("da-DK");
+
+            string result = JsonSerializer.Serialize(
+                new DateOnly(2026, 9, 25),
+                serializerOptions);
+
+            result.Should().Be("\"2026-09-25\"");
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = originalCulture;
+        }
+    }
 
     [Theory, AutoNSubstituteData]
     public void ReadObjects_Rejects_Null_SerializerOptions(

@@ -158,6 +158,8 @@ public static class DataReaderExtensions
             DateOnly value,
             JsonSerializerOptions options)
             => writer.WriteStringValue(
-                value.ToString());
+                value.ToString(
+                    "yyyy-MM-dd",
+                    CultureInfo.InvariantCulture));
     }
 }
