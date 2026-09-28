@@ -46,6 +46,7 @@ public class KustoIngesterTests
         string? payload = null;
         StreamSourceOptions? sourceOptions = null;
         KustoIngestionProperties? properties = null;
+        CancellationToken sdkCancellationToken = default;
         clientProvider
             .GetClient(null, KustoIngestionMode.ManagedStreaming)
             .Returns(client);
@@ -57,13 +58,15 @@ public class KustoIngesterTests
                     && stream.Length > 0
                     && stream.Position == 0),
                 Arg.Any<KustoIngestionProperties>(),
-                Arg.Any<StreamSourceOptions>())
+                Arg.Any<StreamSourceOptions>(),
+                Arg.Any<CancellationToken>())
             .Returns(call => ConsumeAsync(
                 call,
                 sdkResult,
                 value => payload = value,
                 value => properties = value,
-                value => sourceOptions = value));
+                value => sourceOptions = value,
+                value => sdkCancellationToken = value));
         sdkResult
             .GetIngestionStatusBySourceId(Arg.Any<Guid>())
             .Returns(call => new IngestionStatus(call.Arg<Guid>())
@@ -75,12 +78,14 @@ public class KustoIngesterTests
             tableName,
             mappingName,
             databaseName);
+        using var cancellation = new CancellationTokenSource();
 
         KustoIngestionResult result = await sut.IngestAsync(
             [
                 new Item("one"),
                 new Item("two"),
-            ]);
+            ],
+            cancellation.Token);
 
         payload.Should().Be(
             "{\"value\":\"one\"}\n{\"value\":\"two\"}\n");
@@ -97,6 +102,7 @@ public class KustoIngesterTests
         result.SourceId.Should().Be(sourceOptions!.SourceId);
         result.Method.Should().Be(KustoIngestionMethod.Streaming);
         result.Status.Should().Be(KustoIngestionStatus.Succeeded);
+        sdkCancellationToken.Should().Be(cancellation.Token);
     }
 
     [Theory, AutoNSubstituteData]
@@ -116,7 +122,8 @@ public class KustoIngesterTests
             .IngestFromStreamAsync(
                 Arg.Any<Stream>(),
                 Arg.Any<KustoIngestionProperties>(),
-                Arg.Any<StreamSourceOptions>())
+                Arg.Any<StreamSourceOptions>(),
+                Arg.Any<CancellationToken>())
             .Returns(call => ConsumeAsync(
                 call,
                 sdkResult));
@@ -158,7 +165,8 @@ public class KustoIngesterTests
             .IngestFromStreamAsync(
                 Arg.Any<Stream>(),
                 Arg.Any<KustoIngestionProperties>(),
-                Arg.Any<StreamSourceOptions>())
+                Arg.Any<StreamSourceOptions>(),
+                Arg.Any<CancellationToken>())
             .Returns(call => ConsumeAsync(
                 call,
                 sdkResult,
@@ -203,7 +211,8 @@ public class KustoIngesterTests
             .IngestFromStreamAsync(
                 Arg.Any<Stream>(),
                 Arg.Any<KustoIngestionProperties>(),
-                Arg.Any<StreamSourceOptions>())
+                Arg.Any<StreamSourceOptions>(),
+                Arg.Any<CancellationToken>())
             .Returns(call => ConsumeAsync(
                 call,
                 sdkResult));
@@ -239,7 +248,8 @@ public class KustoIngesterTests
             .IngestFromStreamAsync(
                 Arg.Any<Stream>(),
                 Arg.Any<KustoIngestionProperties>(),
-                Arg.Any<StreamSourceOptions>())
+                Arg.Any<StreamSourceOptions>(),
+                Arg.Any<CancellationToken>())
             .Returns(call => ConsumeAsync(
                 call,
                 sdkResult));
@@ -277,7 +287,8 @@ public class KustoIngesterTests
             .IngestFromStreamAsync(
                 Arg.Any<Stream>(),
                 Arg.Any<KustoIngestionProperties>(),
-                Arg.Any<StreamSourceOptions>())
+                Arg.Any<StreamSourceOptions>(),
+                Arg.Any<CancellationToken>())
             .Returns(Task.FromException<IKustoIngestionResult>(
                 exception));
         var sut = CreateSut(
@@ -337,7 +348,8 @@ public class KustoIngesterTests
             .When(x => x.IngestFromStreamAsync(
                 Arg.Any<Stream>(),
                 Arg.Any<KustoIngestionProperties>(),
-                Arg.Any<StreamSourceOptions>()))
+                Arg.Any<StreamSourceOptions>(),
+                Arg.Any<CancellationToken>()))
             .Do(_ => throw exception);
         var sut = CreateSut(
             clientProvider,
@@ -371,7 +383,8 @@ public class KustoIngesterTests
             .IngestFromStreamAsync(
                 Arg.Any<Stream>(),
                 Arg.Any<KustoIngestionProperties>(),
-                Arg.Any<StreamSourceOptions>())
+                Arg.Any<StreamSourceOptions>(),
+                Arg.Any<CancellationToken>())
             .Returns(call => ConsumeAsync(
                 call,
                 sdkResult));
@@ -413,7 +426,8 @@ public class KustoIngesterTests
             .IngestFromStreamAsync(
                 Arg.Any<Stream>(),
                 Arg.Any<KustoIngestionProperties>(),
-                Arg.Any<StreamSourceOptions>())
+                Arg.Any<StreamSourceOptions>(),
+                Arg.Any<CancellationToken>())
             .Returns(call => ConsumeAsync(
                 call,
                 sdkResult));
@@ -455,13 +469,16 @@ public class KustoIngesterTests
         IKustoIngestionResult result,
         Action<string>? setPayload = null,
         Action<KustoIngestionProperties>? setProperties = null,
-        Action<StreamSourceOptions>? setSourceOptions = null)
+        Action<StreamSourceOptions>? setSourceOptions = null,
+        Action<CancellationToken>? setCancellationToken = null)
     {
         Stream stream = call.ArgAt<Stream>(0);
         setProperties?.Invoke(
             call.ArgAt<KustoIngestionProperties>(1));
         setSourceOptions?.Invoke(
             call.ArgAt<StreamSourceOptions>(2));
+        setCancellationToken?.Invoke(
+            call.ArgAt<CancellationToken>(3));
         using var reader = new StreamReader(stream);
         string payload = await reader.ReadToEndAsync();
         setPayload?.Invoke(payload);

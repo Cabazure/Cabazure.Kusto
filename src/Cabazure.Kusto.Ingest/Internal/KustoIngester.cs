@@ -58,7 +58,8 @@ internal class KustoIngester<T>(
                 new StreamSourceOptions
                 {
                     SourceId = sourceId,
-                });
+                },
+                cancellationToken);
         IngestionStatus status = sdkResult
             .GetIngestionStatusBySourceId(sourceId);
 

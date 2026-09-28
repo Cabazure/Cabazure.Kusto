@@ -368,7 +368,7 @@ IKustoIngester<DataRecord> ingester = factory.Create<DataRecord>(
 
 Only one ingestion destination can be registered for a given .NET type. Use a distinct record type when the same data shape must represent a different table or mapping.
 
-The Kusto Ingest SDK doesn't accept a cancellation token for an ingestion request. Cancellation stops Cabazure while enumerating and serializing records, but a request already issued to the SDK cannot be cancelled cooperatively.
+Cancellation is observed while Cabazure enumerates and serializes records and is forwarded to the Kusto Ingest SDK for the ingestion request.
 
 ## Sample
 
