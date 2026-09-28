@@ -240,18 +240,22 @@ public sealed class DataRecordHandler(
 }
 ```
 
-Both `IEnumerable<T>` and `IAsyncEnumerable<T>` are supported. Records are serialized incrementally as newline-delimited JSON, so the complete input isn't buffered in memory. Serialization uses compact camel-case JSON by default. It can be customized during registration:
+Both `IEnumerable<T>` and `IAsyncEnumerable<T>` are supported. Records are serialized incrementally as newline-delimited JSON, so the complete input isn't buffered in memory.
+
+`CabazureKustoOptions.SerializerOptions` is shared by typed query-result materialization and typed ingestion for the configured connection. Its defaults preserve Cabazure.Kusto's existing behavior: camel-case names, case-insensitive matching, string enums, `DateOnly`, numbers read from strings, and ignored unmapped members. Override it with `WithSerializerOptions()`:
 
 ```csharp
 builder.Services.AddCabazureKusto(kusto => kusto
-  .ConfigureIngestion(o =>
-    o.SerializerOptions = JsonSerializerOptionsFactory.Create())
   .Configure(o => o
     .WithHostAddress(clusterUri)
     .WithDatabaseName(databaseName)
-    .WithCredential(credential))
+    .WithCredential(credential)
+    .WithSerializerOptions(
+      JsonSerializerOptionsFactory.Create()))
   .AddIngestion<DataRecord>("RawData", "RawDataMapping"));
 ```
+
+Named connections can use different serializer options. A processor or ingester created for a named connection uses that connection's `CabazureKustoOptions.SerializerOptions`. Custom `IKustoQuery<T>` and `IKustoStreamQuery<T>` implementations can override the overload receiving `JsonSerializerOptions` to honor the selected configuration.
 
 ### Ingestion modes
 
