@@ -26,7 +26,8 @@ public class ScriptHandlerFactory(
             clientProvider.GetQueryClient(
                 connectionName,
                 databaseName),
-            query);
+            query,
+            GetOptions(connectionName).SerializerOptions);
 
     public IStreamScriptHandler<T> CreateStream<T>(
         IKustoStreamQuery<T> query,
@@ -36,7 +37,8 @@ public class ScriptHandlerFactory(
             clientProvider.GetQueryClient(
                 connectionName,
                 databaseName),
-            query);
+            query,
+            GetOptions(connectionName).SerializerOptions);
 
     public IScriptHandler<PagedResult<T>> Create<T>(
         IKustoQuery<IReadOnlyList<T>> query,
@@ -46,7 +48,11 @@ public class ScriptHandlerFactory(
         string? connectionName = null,
         string? databaseName = null,
         bool includeTotalCount = false)
-        => continuationToken != null
+    {
+        CabazureKustoOptions options = GetOptions(connectionName);
+        TimeSpan expiration = GetPagedResultExpiration(options);
+
+        return continuationToken != null
          ? new ExistingStoredQueryHandler<T>(
             queryIdProvider,
             clientProvider.GetQueryClient(
@@ -58,8 +64,9 @@ public class ScriptHandlerFactory(
             query,
             sessionId,
             maxItemCount,
-            GetPagedResultExpiration(connectionName),
-            continuationToken)
+            expiration,
+            continuationToken,
+            options.SerializerOptions)
          : new NewStoredQueryHandler<T>(
             queryIdProvider,
             clientProvider.GetAdminClient(
@@ -68,13 +75,15 @@ public class ScriptHandlerFactory(
             query,
             sessionId,
             maxItemCount,
-            GetPagedResultExpiration(connectionName),
-            includeTotalCount);
+            expiration,
+            includeTotalCount,
+            options.SerializerOptions);
+    }
 
-    private TimeSpan GetPagedResultExpiration(string? connectionName)
+    private static TimeSpan GetPagedResultExpiration(
+        CabazureKustoOptions options)
     {
-        var expiration = optionsMonitor.Get(connectionName)?.PagedResultExpiration
-            ?? CabazureKustoOptions.DefaultPagedResultExpiration;
+        TimeSpan expiration = options.PagedResultExpiration;
 
         if (expiration < TimeSpan.FromSeconds(1)
             || expiration > CabazureKustoOptions.MaxPagedResultExpiration)
@@ -85,4 +94,8 @@ public class ScriptHandlerFactory(
 
         return expiration;
     }
+
+    private CabazureKustoOptions GetOptions(string? connectionName)
+        => optionsMonitor.Get(connectionName)
+            ?? new CabazureKustoOptions();
 }

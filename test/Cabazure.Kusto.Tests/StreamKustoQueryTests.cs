@@ -58,11 +58,17 @@ public class StreamKustoQueryTests
 
         var eagerReader = CreateReader(values, fieldNames, typeNames);
         var streamReader = CreateReader(values, fieldNames, typeNames);
-        var expected = eagerReader.ReadObjects<StreamQueryTestObject>();
+        var serializerOptions = new CabazureKustoOptions()
+            .SerializerOptions;
+        var expected = eagerReader.ReadObjects<StreamQueryTestObject>(
+            serializerOptions);
         var query = new TestStreamQuery();
 
         var actual = new List<StreamQueryTestObject>();
-        await foreach (var item in query.ReadResults(streamReader, CancellationToken.None))
+        await foreach (var item in query.ReadResults(
+            streamReader,
+            serializerOptions,
+            CancellationToken.None))
         {
             actual.Add(item);
         }

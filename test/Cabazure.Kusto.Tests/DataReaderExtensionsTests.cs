@@ -1,5 +1,7 @@
 using System.Data;
 using System.Data.SqlTypes;
+using System.Globalization;
+using System.Text.Json;
 using Kusto.Cloud.Platform.Utils;
 using Newtonsoft.Json.Linq;
 
@@ -7,7 +9,20 @@ namespace Cabazure.Kusto.Tests;
 
 public class DataReaderExtensionsTests
 {
+    private readonly JsonSerializerOptions serializerOptions
+        = new CabazureKustoOptions().SerializerOptions;
+
+    public enum TestState
+    {
+        Active,
+    }
+
     public record TestObject(string Property1, string Property2, string Property3);
+
+    public record CompatibilityTestObject(
+        TestState State,
+        int Count,
+        string DisplayName);
 
     public record RichTestObject(
         bool BoolValue,
@@ -17,6 +32,60 @@ public class DataReaderExtensionsTests
         DateOnly DateOnlyValue);
 
     public record NestedTestObject(string Name, int Count);
+
+    [Fact]
+    public void DateOnlyJsonConverter_Writes_Invariant_Iso_Date()
+    {
+        CultureInfo originalCulture = CultureInfo.CurrentCulture;
+        try
+        {
+            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("da-DK");
+
+            string result = JsonSerializer.Serialize(
+                new DateOnly(2026, 9, 25),
+                serializerOptions);
+
+            result.Should().Be("\"2026-09-25\"");
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = originalCulture;
+        }
+    }
+
+    [Theory, AutoNSubstituteData]
+    public void ReadObjects_Rejects_Null_SerializerOptions(
+        IDataReader dataReader)
+    {
+        Action act = () => dataReader.ReadObjects<TestObject>(null!);
+
+        act.Should()
+            .Throw<ArgumentNullException>()
+            .WithParameterName("options");
+    }
+
+    [Theory, AutoNSubstituteData]
+    public void ReadObject_Rejects_Null_SerializerOptions(
+        IDataReader dataReader)
+    {
+        Action act = () => dataReader.ReadObject<TestObject>(null!);
+
+        act.Should()
+            .Throw<ArgumentNullException>()
+            .WithParameterName("options");
+    }
+
+    [Theory, AutoNSubstituteData]
+    public void ReadObjectsFromNextResult_Rejects_Null_SerializerOptions(
+        IDataReader dataReader)
+    {
+        Action act = () => dataReader
+            .ReadObjectsFromNextResult<TestObject>(null!);
+
+        act.Should()
+            .Throw<ArgumentNullException>()
+            .WithParameterName("options");
+    }
 
     [Theory, AutoNSubstituteData]
     public void ReadObjects_Will_Return_Objects_Read_From_DataReader(
@@ -39,7 +108,7 @@ public class DataReaderExtensionsTests
         dataReader.GetDataTypeName(default).ReturnsForAnyArgs(c => values[index][c.Arg<int>()].GetType().Name);
 
         DataReaderExtensions
-            .ReadObjects<TestObject>(dataReader)
+            .ReadObjects<TestObject>(dataReader, serializerOptions)
             .Should()
             .BeEquivalentTo(data);
     }
@@ -66,7 +135,9 @@ public class DataReaderExtensionsTests
         dataReader.NextResult().Returns(true);
 
         DataReaderExtensions
-            .ReadObjectsFromNextResult<TestObject>(dataReader)
+            .ReadObjectsFromNextResult<TestObject>(
+                dataReader,
+                serializerOptions)
             .Should()
             .BeEquivalentTo(data);
 
@@ -86,11 +157,34 @@ public class DataReaderExtensionsTests
         table.Columns.Add("cabazure_fingerprint", typeof(string));
         table.Rows.Add("a", "b", "c", 1L, "abc123");
 
-        var result = table.CreateDataReader().ReadObjects<TestObject>();
+        var result = table
+            .CreateDataReader()
+            .ReadObjects<TestObject>(serializerOptions);
 
         result
             .Should()
             .BeEquivalentTo([new TestObject("a", "b", "c")]);
+    }
+
+    [Fact]
+    public void ReadObject_Uses_Compatibility_Defaults()
+    {
+        var table = new DataTable();
+        table.Columns.Add("STATE", typeof(string));
+        table.Columns.Add("COUNT", typeof(string));
+        table.Columns.Add("DISPLAYNAME", typeof(string));
+        table.Rows.Add("Active", "42", "example");
+        using DataTableReader reader = table.CreateDataReader();
+        reader.Read().Should().BeTrue();
+
+        CompatibilityTestObject result
+            = reader.ReadObject<CompatibilityTestObject>(
+                serializerOptions);
+
+        result.Should().Be(new CompatibilityTestObject(
+            TestState.Active,
+            42,
+            "example"));
     }
 
     [Fact]
@@ -133,7 +227,8 @@ public class DataReaderExtensionsTests
         dataReader.GetBoolean(default).ReturnsForAnyArgs(c => (bool)values[c.Arg<int>()]);
         dataReader.GetDataTypeName(default).ReturnsForAnyArgs(c => typeNames[c.Arg<int>()]);
 
-        var result = dataReader.ReadObject<RichTestObject>();
+        var result = dataReader.ReadObject<RichTestObject>(
+            serializerOptions);
 
         result.Should().Be(new RichTestObject(
             BoolValue: true,
@@ -143,4 +238,3 @@ public class DataReaderExtensionsTests
             DateOnlyValue: new DateOnly(2026, 9, 25)));
     }
 }
-

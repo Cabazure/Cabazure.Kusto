@@ -1,4 +1,5 @@
 using System.Data;
+using System.Text.Json;
 using Cabazure.Kusto.Processing;
 using Kusto.Data.Common;
 using Kusto.Data.Exceptions;
@@ -17,6 +18,7 @@ public class ExistingStoredQueryHandlerTests
     private readonly string fingerprint;
     private readonly int itemsReturned;
     private readonly TimeSpan expiration = TimeSpan.FromMinutes(30);
+    private readonly JsonSerializerOptions serializerOptions;
 
     public ExistingStoredQueryHandlerTests()
     {
@@ -31,9 +33,29 @@ public class ExistingStoredQueryHandlerTests
         queryId = fixture.Create<string>().ToAlphaNumeric();
         fingerprint = fixture.Create<string>().ToAlphaNumeric();
         itemsReturned = fixture.Create<int>();
+        serializerOptions = new JsonSerializerOptions();
 
         queryIdProvider.CreateQueryId(default!, default, default).ReturnsForAnyArgs(queryId);
         queryIdProvider.CreateFingerprint(default!).ReturnsForAnyArgs(fingerprint);
+    }
+
+    [Fact]
+    public void Constructor_Rejects_Null_SerializerOptions()
+    {
+        Action act = () => new ExistingStoredQueryHandler<string>(
+            queryIdProvider,
+            queryProvider,
+            adminProvider,
+            query,
+            sessionId,
+            maxItemCount,
+            expiration,
+            "v2;;0",
+            null!);
+
+        act.Should()
+            .Throw<ArgumentNullException>()
+            .WithParameterName("serializerOptions");
     }
 
     private ExistingStoredQueryHandler<string> CreateSut(
@@ -47,7 +69,8 @@ public class ExistingStoredQueryHandlerTests
             sessionId,
             maxItemCount,
             expiration,
-            continuationToken);
+            continuationToken,
+            serializerOptions);
 
     private void SetupPage(IDataReader reader, string[] items)
     {
@@ -55,7 +78,7 @@ public class ExistingStoredQueryHandlerTests
             .ExecuteQueryAsync(default, default, default)
             .ReturnsForAnyArgs(reader);
         query
-            .ReadResult(default)
+            .ReadResult(default, default!)
             .ReturnsForAnyArgs(items);
     }
 
@@ -115,7 +138,9 @@ public class ExistingStoredQueryHandlerTests
 
         _ = query
             .Received(1)
-            .ReadResult(reader);
+            .ReadResult(
+                reader,
+                serializerOptions);
     }
 
     [Theory, AutoNSubstituteData]
@@ -213,7 +238,11 @@ public class ExistingStoredQueryHandlerTests
     {
         string[] queryResult = ["a", "b", "c"];
         query.GetQueryText().Returns(queryText);
-        query.ReadResult(reader).Returns(queryResult);
+        query
+            .ReadResult(
+                reader,
+                Arg.Any<System.Text.Json.JsonSerializerOptions>())
+            .Returns(queryResult);
         queryProvider
             .ExecuteQueryAsync(default, default, default)
             .ReturnsForAnyArgs(
@@ -246,8 +275,16 @@ public class ExistingStoredQueryHandlerTests
         CancellationToken cancellationToken)
     {
         string[] queryResult = ["a", "b", "c"];
-        query.ReadResult(emptyReader).Returns([]);
-        query.ReadResult(reader).Returns(queryResult);
+        query
+            .ReadResult(
+                emptyReader,
+                Arg.Any<System.Text.Json.JsonSerializerOptions>())
+            .Returns([]);
+        query
+            .ReadResult(
+                reader,
+                Arg.Any<System.Text.Json.JsonSerializerOptions>())
+            .Returns(queryResult);
         queryProvider
             .ExecuteQueryAsync(default, default, default)
             .ReturnsForAnyArgs(emptyReader, reader);
@@ -297,8 +334,16 @@ public class ExistingStoredQueryHandlerTests
     {
         const long refreshedTotal = 1000;
         string[] queryResult = ["a", "b", "c"];
-        query.ReadResult(emptyReader).Returns([]);
-        query.ReadResult(reader).Returns(queryResult);
+        query
+            .ReadResult(
+                emptyReader,
+                Arg.Any<System.Text.Json.JsonSerializerOptions>())
+            .Returns([]);
+        query
+            .ReadResult(
+                reader,
+                Arg.Any<System.Text.Json.JsonSerializerOptions>())
+            .Returns(queryResult);
         queryProvider
             .ExecuteQueryAsync(default, default, default)
             .ReturnsForAnyArgs(emptyReader, reader);

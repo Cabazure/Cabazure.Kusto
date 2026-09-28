@@ -5,12 +5,11 @@ using SampleApi.Queries;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddCabazureKusto(o =>
-{
-    o.HostAddress = new Uri("https://help.kusto.windows.net/");
-    o.DatabaseName = "ContosoSales";
-    o.Credential = new DefaultAzureCredential();
-});
+builder.Services.AddCabazureKusto(b => b
+    .Configure(o => o
+        .WithHostAddress("https://help.kusto.windows.net/")
+        .WithDatabaseName("ContosoSales")
+        .WithCredential(new DefaultAzureCredential())));
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
