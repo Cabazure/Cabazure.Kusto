@@ -17,7 +17,8 @@ public record StoredQueryContinuationToken(
             || split[0] != Version
             || split[1].Length > MaxNonceLength
             || split[1].ToAlphaNumeric() != split[1]
-            || !TryParseCount(split[2], out var itemsReturned))
+            || !TryParseCount(split[2], out var itemsReturned)
+            || itemsReturned < 0)
         {
             return null;
         }
@@ -25,7 +26,8 @@ public record StoredQueryContinuationToken(
         long? totalCount = null;
         if (split.Length == 4)
         {
-            if (!TryParseCount(split[3], out var total))
+            if (!TryParseCount(split[3], out var total)
+                || total < 0)
             {
                 return null;
             }

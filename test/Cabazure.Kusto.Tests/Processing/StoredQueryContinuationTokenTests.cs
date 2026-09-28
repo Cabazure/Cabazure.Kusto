@@ -23,6 +23,8 @@ public class StoredQueryContinuationTokenTests
     [InlineData("query;10")]
     [InlineData("query;10;42")]
     [InlineData("v2;;+10")]
+    [InlineData("v2;;-1")]
+    [InlineData("v2;;10;-1")]
     [InlineData("v2;a b;10")]
     public void Parse_Returns_Null_For_Invalid_Token(string? value)
         => StoredQueryContinuationToken.Parse(value)
