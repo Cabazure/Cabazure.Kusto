@@ -314,8 +314,11 @@ public class KustoIngesterTests
             mappingName,
             databaseName);
 
+        using var timeout = new CancellationTokenSource(
+            TimeSpan.FromSeconds(5));
         Func<Task> act = () => sut.IngestAsync(
-            [new Item("one")]);
+            EndlessItems(timeout.Token),
+            timeout.Token);
 
         await act.Should()
             .ThrowAsync<InvalidOperationException>()
@@ -453,5 +456,16 @@ public class KustoIngesterTests
         yield return new Item("one");
         await firstRecordRead.WaitAsync(cancellationToken);
         yield return new Item("two");
+    }
+
+    private static async IAsyncEnumerable<Item> EndlessItems(
+        [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            yield return new Item("value");
+            await Task.Yield();
+        }
     }
 }

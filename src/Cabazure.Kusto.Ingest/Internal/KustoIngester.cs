@@ -38,10 +38,13 @@ internal class KustoIngester<T>(
 
         var sourceId = Guid.NewGuid();
         var pipe = new Pipe();
+        using var producerCancellation
+            = CancellationTokenSource.CreateLinkedTokenSource(
+                cancellationToken);
         Task producer = SerializeAsync(
             items,
             pipe.Writer,
-            cancellationToken);
+            producerCancellation.Token);
         using Stream sourceStream = pipe.Reader.AsStream();
         Task<IKustoIngestionResult> consumer = clientProvider
             .GetClient(ConnectionName, Mode)
@@ -55,12 +58,33 @@ internal class KustoIngester<T>(
 
         try
         {
+            Task firstCompleted = await Task.WhenAny(
+                producer,
+                consumer);
+            if (firstCompleted == consumer
+                && !consumer.IsCompletedSuccessfully)
+            {
+                await producerCancellation.CancelAsync();
+            }
+
             await Task.WhenAll(producer, consumer);
         }
         catch
         {
+            await producerCancellation.CancelAsync();
             await pipe.Reader.CompleteAsync();
             cancellationToken.ThrowIfCancellationRequested();
+
+            if (producer.IsFaulted)
+            {
+                await producer;
+            }
+
+            if (consumer.IsFaulted)
+            {
+                await consumer;
+            }
+
             throw;
         }
 
