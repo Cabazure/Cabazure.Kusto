@@ -16,27 +16,40 @@ The library extents the official .NET SDK, and adds functionality for:
  * Passing parameters to your .kusto scripts
  * Deserialization of query results
  * Pagination using stored query results
+ * Typed streaming and queued ingestion through the optional `Cabazure.Kusto.Ingest` package
 
 ## Getting started
 
 ### 1. Configuring the Cabazure.Kusto library
 
-The Cabazure.Kusto is initialized by calling the `AddCabazureKusto()` on the `IServiceCollection` during startup of your application, like this:
+Cabazure.Kusto is initialized by calling `AddCabazureKusto()` on the `IServiceCollection` during application startup:
 
 ```csharp
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddCabazureKusto(o =>
-{
-    o.HostAddress = "https://help.kusto.windows.net/";
-    o.DatabaseName = "ContosoSales";
-    o.Credential = new DefaultAzureCredential();
-});
+builder.Services.AddCabazureKusto(kusto => kusto
+  .Configure(o => o
+    .WithHostAddress("https://help.kusto.windows.net/")
+    .WithDatabaseName("ContosoSales")
+    .WithCredential(new DefaultAzureCredential())));
 ```
 
-_Note: The `CabazureKustoOptions` can also be configured using the `Microsoft.Extensions.Options` framework, by registering an implementation of `IConfigureOptions<CabazureKustoOptions>`. In this case, it can be omitted on the `AddCabazureKusto()` call._
+The builder can also register an `IConfigureOptions<CabazureKustoOptions>` or `IConfigureNamedOptions<CabazureKustoOptions>` implementation:
 
-_Note: The connection can also be configured using `o.ConnectionString` instead of `o.HostAddress`. In both cases, `o.DatabaseName` is the default database, which can be overridden per query by passing a `databaseName` to `IKustoProcessorFactory.Create()`._
+```csharp
+builder.Services.AddCabazureKusto(kusto => kusto
+  .Configure<ConfigureKustoOptions>());
+```
+
+Named connections use the overload taking a connection name:
+
+```csharp
+builder.Services.AddCabazureKusto(
+  "analytics",
+  kusto => kusto.Configure<ConfigureKustoOptions>());
+```
+
+The connection can use `WithConnectionString()` instead of `WithHostAddress()`. In both cases, `WithDatabaseName()` sets the default database. A query can override the connection or database through `IKustoProcessorFactory.Create()`.
 
 ### 2. Adding a Kusto query
 
@@ -140,11 +153,12 @@ Holding a continuation token or `sessionId` gives no access beyond what sending 
 Stored query results expire after `CabazureKustoOptions.PagedResultExpiration`, which defaults to 30 minutes. The maximum is 24 hours, the ADX limit. You can set it per named connection:
 
 ```csharp
-builder.Services.AddCabazureKusto(o =>
-{
-    o.HostAddress = new Uri("https://help.kusto.windows.net/");
+builder.Services.AddCabazureKusto(kusto => kusto
+  .Configure(o =>
+  {
+    o.WithHostAddress("https://help.kusto.windows.net/");
     o.PagedResultExpiration = TimeSpan.FromMinutes(15);
-});
+  }));
 ```
 
 A continuation token can still be used after its stored result has expired, or after another request with different filters has replaced it. The query is re-run into the same stored result, and the requested page is returned from that new snapshot, so a user can pick up where they left off. If the data changed in the meantime, rows may shift. When a total count was requested, it is refreshed at the same time.
@@ -186,6 +200,96 @@ app.MapGet(
 ```
 
 Streaming queries reuse the same row deserialization rules as `KustoQuery<T>`, including support for dynamic columns, `SqlDecimal`, `DBNull`, and `DateOnly`. Row-by-row delivery is driven by the underlying Kusto SDK's HTTP response streaming (enabled by default via `KustoConnectionStringBuilder.Streaming`), so rows are exposed lazily to the caller without buffering the full result set client-side.
+
+## Ingestion
+
+Install the optional ingestion package when an application needs to write typed records to Azure Data Explorer:
+
+```powershell
+dotnet add package Cabazure.Kusto.Ingest
+```
+
+Register the table and an existing JSON ingestion mapping for each record type:
+
+```csharp
+using Cabazure.Kusto.DependencyInjection;
+using Cabazure.Kusto.Ingest;
+
+builder.Services.AddCabazureKusto(kusto => kusto
+  .Configure(o => o
+    .WithHostAddress("https://contoso.westeurope.kusto.windows.net/")
+    .WithDatabaseName("Telemetry")
+    .WithCredential(new DefaultAzureCredential()))
+  .AddIngestion<DataRecord>(
+    tableName: "RawData",
+    mappingName: "RawDataMapping"));
+```
+
+`AddIngestion<T>()` registers `IKustoIngester<T>` in dependency injection. The ingester automatically uses the configured table, mapping, connection, database, and ingestion mode:
+
+```csharp
+public sealed class DataRecordHandler(
+  IKustoIngester<DataRecord> ingester)
+{
+  public Task<KustoIngestionResult> HandleAsync(
+    IAsyncEnumerable<DataRecord> records,
+    CancellationToken cancellationToken)
+    => ingester.IngestAsync(
+      records,
+      cancellationToken);
+}
+```
+
+Both `IEnumerable<T>` and `IAsyncEnumerable<T>` are supported. Records are serialized incrementally as newline-delimited JSON, so the complete input isn't buffered in memory. Serialization uses compact camel-case JSON by default. It can be customized during registration:
+
+```csharp
+builder.Services.AddCabazureKusto(kusto => kusto
+  .ConfigureIngestion(o =>
+    o.SerializerOptions = JsonSerializerOptionsFactory.Create())
+  .Configure(o => o
+    .WithHostAddress(clusterUri)
+    .WithDatabaseName(databaseName)
+    .WithCredential(credential))
+  .AddIngestion<DataRecord>("RawData", "RawDataMapping"));
+```
+
+### Ingestion modes
+
+`AddIngestion<T>()` accepts an optional `KustoIngestionMode`. It defaults to `ManagedStreaming`.
+
+| Mode | Completion semantics | Best suited for |
+| --- | --- | --- |
+| `ManagedStreaming` | Attempts streaming first and can return `Queued` when the SDK falls back to queued ingestion. | General low-latency ingestion where a resilient queued fallback is acceptable. |
+| `Streaming` | A successful result means streaming ingestion completed. It fails rather than falling back to the queue. | Small payloads where low latency is required and queued fallback would be undesirable. |
+| `Queued` | A successful SDK call means the source was accepted into the ingestion queue, not that ingestion completed. | Larger batches, sustained volume, and workloads prioritizing throughput and reliability. |
+
+Select a different default mode when registering a type:
+
+```csharp
+kusto.AddIngestion<DataRecord>(
+  tableName: "RawData",
+  mappingName: "RawDataMapping",
+  mode: KustoIngestionMode.Queued);
+```
+
+Managed streaming automatically retries or moves suitable failures to queued ingestion. Consequently, inspect `KustoIngestionResult.Method` and `KustoIngestionResult.Status`: a managed request can return `Streaming`/`Succeeded` or `Queued`/`Queued`.
+
+Streaming ingestion must be enabled on the target table or database. Strict streaming supports only precreated ingestion mappings. Queued ingestion is generally preferable for high sustained volume into an individual table; Azure Data Explorer guidance recommends considering queued ingestion above approximately 4 GB per hour per table.
+
+### Overriding execution scope
+
+Use `IKustoIngesterFactory` when an individual operation should override the registered connection, database, or ingestion mode. The table and mapping remain associated with `T`:
+
+```csharp
+IKustoIngester<DataRecord> ingester = factory.Create<DataRecord>(
+  connectionName: "archive",
+  databaseName: "HistoricalTelemetry",
+  mode: KustoIngestionMode.Queued);
+```
+
+Only one ingestion destination can be registered for a given .NET type. Use a distinct record type when the same data shape must represent a different table or mapping.
+
+The Kusto Ingest SDK doesn't accept a cancellation token for an ingestion request. Cancellation stops Cabazure's enumeration and serialization pipeline, but a request already issued to the SDK might finish through stream termination rather than cooperative service cancellation.
 
 ## Sample
 

@@ -25,6 +25,9 @@ Primary responsibilities:
   - `NewStoredQueryHandler<T>` for the first paged request
   - `ExistingStoredQueryHandler<T>` for subsequent paged requests
 - `KustoClientProvider` owns and caches query/admin clients per connection and database.
+- `CabazureKustoBuilder` configures named connections and is extended by the optional `Cabazure.Kusto.Ingest` package.
+- `IKustoIngester<T>` incrementally serializes typed records as JSON lines and uses the registered table, mapping, and ingestion mode.
+- `IKustoIngesterFactory` overrides connection, database, or ingestion mode while reusing the destination registered for `T`.
 
 ## Expectations for new code
 
@@ -57,6 +60,7 @@ Primary responsibilities:
 ## Dependency injection and configuration
 
 - Register services through `AddCabazureKusto(...)` in `ServiceCollectionExtensions`.
+- Add typed ingestion through `CabazureKustoBuilder.AddIngestion<T>()`; keep the Ingest SDK dependency in `Cabazure.Kusto.Ingest`.
 - Keep support for both inline configuration and `IOptions`-based configuration.
 - Preserve named connection / named options support in `KustoClientProvider`.
 - When changing configuration behavior, verify both connection-string and host-address based configuration paths.
