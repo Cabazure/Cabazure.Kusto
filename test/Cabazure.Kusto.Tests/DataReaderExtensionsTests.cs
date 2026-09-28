@@ -76,6 +76,24 @@ public class DataReaderExtensionsTests
     }
 
     [Fact]
+    public void ReadObjects_Will_Ignore_Stored_Query_Result_Paging_Columns()
+    {
+        var table = new DataTable();
+        table.Columns.Add(nameof(TestObject.Property1), typeof(string));
+        table.Columns.Add(nameof(TestObject.Property2), typeof(string));
+        table.Columns.Add(nameof(TestObject.Property3), typeof(string));
+        table.Columns.Add("row_number", typeof(long));
+        table.Columns.Add("cabazure_fingerprint", typeof(string));
+        table.Rows.Add("a", "b", "c", 1L, "abc123");
+
+        var result = table.CreateDataReader().ReadObjects<TestObject>();
+
+        result
+            .Should()
+            .BeEquivalentTo([new TestObject("a", "b", "c")]);
+    }
+
+    [Fact]
     public void ReadObject_Will_Reuse_Row_Conversion_Rules()
     {
         var dataReader = Substitute.For<IDataReader>();

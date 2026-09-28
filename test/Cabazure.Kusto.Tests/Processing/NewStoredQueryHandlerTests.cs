@@ -12,6 +12,8 @@ public class NewStoredQueryHandlerTests
     private readonly int maxItemCount;
     private readonly string sessionId;
     private readonly string queryId;
+    private readonly string fingerprint;
+    private readonly TimeSpan expiration = TimeSpan.FromMinutes(30);
     private readonly NewStoredQueryHandler<string> sut;
 
     public NewStoredQueryHandlerTests()
@@ -25,9 +27,12 @@ public class NewStoredQueryHandlerTests
         sessionId = fixture.Create<string>().ToAlphaNumeric();
         queryId = fixture.Create<string>().ToAlphaNumeric();
 
-        queryIdProvider.Create(default, default).ReturnsForAnyArgs(queryId);
+        fingerprint = fixture.Create<string>().ToAlphaNumeric();
 
-        sut = new(queryIdProvider, adminProvider, query, sessionId, maxItemCount);
+        queryIdProvider.CreateQueryId(default!, default, default).ReturnsForAnyArgs(queryId);
+        queryIdProvider.CreateFingerprint(default!).ReturnsForAnyArgs(fingerprint);
+
+        sut = new(queryIdProvider, adminProvider, query, sessionId, maxItemCount, expiration);
     }
 
     [Theory, AutoNSubstituteData]
@@ -38,9 +43,64 @@ public class NewStoredQueryHandlerTests
 
         queryIdProvider
             .Received(1)
-            .Create(
-                query.GetType(),
-                sessionId);
+            .CreateQueryId(
+                query,
+                sessionId,
+                null);
+    }
+
+    [Theory, AutoNSubstituteData]
+    public async Task ExecuteAsync_Creates_A_QueryId_With_Nonce_Without_SessionId(
+        CancellationToken cancellationToken)
+    {
+        var sut = new NewStoredQueryHandler<string>(
+            queryIdProvider,
+            adminProvider,
+            query,
+            sessionId: null,
+            maxItemCount,
+            expiration);
+
+        await sut.ExecuteAsync(cancellationToken);
+
+        queryIdProvider
+            .Received(1)
+            .CreateQueryId(
+                query,
+                Arg.Is<string?>(s => s == null),
+                Arg.Is<string>(n => !string.IsNullOrEmpty(n)));
+    }
+
+    [Theory, AutoNSubstituteData]
+    public async Task ExecuteAsync_Returns_Nonce_In_ContinuationToken_Without_SessionId(
+        IDataReader reader,
+        CancellationToken cancellationToken)
+    {
+        string? nonce = null;
+        queryIdProvider
+            .CreateQueryId(query, Arg.Is<string?>(s => s == null), Arg.Do<string?>(n => nonce = n))
+            .Returns(queryId);
+        adminProvider
+            .ExecuteControlCommandAsync(default, default, default)
+            .ReturnsForAnyArgs(reader);
+        query
+            .ReadResult(default)
+            .ReturnsForAnyArgs(["a", "b", "c"]);
+        var sut = new NewStoredQueryHandler<string>(
+            queryIdProvider,
+            adminProvider,
+            query,
+            sessionId: null,
+            maxItemCount,
+            expiration);
+
+        var result = await sut.ExecuteAsync(cancellationToken);
+
+        result!.ContinuationToken
+            .Should()
+            .Be($"v2;{nonce};3")
+            .And
+            .NotContain(queryId);
     }
 
     [Theory, AutoNSubstituteData]
@@ -58,11 +118,36 @@ public class NewStoredQueryHandlerTests
             .Received(1)
             .ExecuteControlCommandAsync(
                 null,
-                $".set-or-replace stored_query_result ['{queryId}'] with (previewCount = {maxItemCount}, expiresAfter = 1h) <|\n"
+                $".set-or-replace stored_query_result ['{queryId}'] with (previewCount = {maxItemCount}, expiresAfter = 1800s) <|\n"
                 + queryText + "\n"
-                + $"| serialize row_number = row_number()",
+                + "| serialize row_number = row_number()\n"
+                + $"| extend cabazure_fingerprint = '{fingerprint}'",
                 Arg.Is<ClientRequestProperties>(p
                     => p.ClientRequestId != null));
+    }
+
+    [Theory, AutoNSubstituteData]
+    public async Task ExecuteAsync_Uses_Configured_Expiration(
+        string queryText,
+        CancellationToken cancellationToken)
+    {
+        query.GetQueryText().Returns(queryText);
+        var sut = new NewStoredQueryHandler<string>(
+            queryIdProvider,
+            adminProvider,
+            query,
+            sessionId,
+            maxItemCount,
+            TimeSpan.FromHours(2));
+
+        await sut.ExecuteAsync(cancellationToken);
+
+        _ = adminProvider
+            .Received(1)
+            .ExecuteControlCommandAsync(
+                Arg.Is<string>(s => s == null),
+                Arg.Is<string>(s => s.Contains("expiresAfter = 7200s)")),
+                Arg.Any<ClientRequestProperties>());
     }
 
     [Theory, AutoNSubstituteData]
@@ -100,7 +185,7 @@ public class NewStoredQueryHandlerTests
             .BeEquivalentTo(queryResult);
         result.ContinuationToken
             .Should()
-            .BeEquivalentTo($"{queryId};{queryResult.Length}");
+            .Be($"v2;;{queryResult.Length}");
         result.TotalCount
             .Should()
             .BeNull();
@@ -156,7 +241,7 @@ public class NewStoredQueryHandlerTests
             .Be(totalCount);
         result.ContinuationToken
             .Should()
-            .Be($"{queryId};{queryResult.Length};{totalCount}");
+            .Be($"v2;;{queryResult.Length};{totalCount}");
     }
 
     [Theory, AutoNSubstituteData]
@@ -209,7 +294,7 @@ public class NewStoredQueryHandlerTests
     }
 
     private NewStoredQueryHandler<string> CreateSut(bool includeTotalCount)
-        => new(queryIdProvider, adminProvider, query, sessionId, maxItemCount, includeTotalCount);
+        => new(queryIdProvider, adminProvider, query, sessionId, maxItemCount, expiration, includeTotalCount);
 
     private void SetupStoredQueryResult(
         IDataReader reader,

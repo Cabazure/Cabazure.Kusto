@@ -1,8 +1,11 @@
+using Microsoft.Extensions.Options;
+
 namespace Cabazure.Kusto.Processing;
 
 public class ScriptHandlerFactory(
     IQueryIdProvider queryIdProvider,
-    IKustoClientProvider clientProvider)
+    IKustoClientProvider clientProvider,
+    IOptionsMonitor<CabazureKustoOptions> optionsMonitor)
     : IScriptHandlerFactory
 {
     public IScriptHandler Create(
@@ -45,11 +48,17 @@ public class ScriptHandlerFactory(
         bool includeTotalCount = false)
         => continuationToken != null
          ? new ExistingStoredQueryHandler<T>(
+            queryIdProvider,
             clientProvider.GetQueryClient(
                 connectionName,
                 databaseName),
+            clientProvider.GetAdminClient(
+                connectionName,
+                databaseName),
             query,
+            sessionId,
             maxItemCount,
+            GetPagedResultExpiration(connectionName),
             continuationToken)
          : new NewStoredQueryHandler<T>(
             queryIdProvider,
@@ -59,5 +68,21 @@ public class ScriptHandlerFactory(
             query,
             sessionId,
             maxItemCount,
+            GetPagedResultExpiration(connectionName),
             includeTotalCount);
+
+    private TimeSpan GetPagedResultExpiration(string? connectionName)
+    {
+        var expiration = optionsMonitor.Get(connectionName)?.PagedResultExpiration
+            ?? CabazureKustoOptions.DefaultPagedResultExpiration;
+
+        if (expiration < TimeSpan.FromSeconds(1)
+            || expiration > CabazureKustoOptions.MaxPagedResultExpiration)
+        {
+            throw new InvalidOperationException(
+                $"{nameof(CabazureKustoOptions.PagedResultExpiration)} must be between 1 second and 24 hours, but was {expiration}.");
+        }
+
+        return expiration;
+    }
 }

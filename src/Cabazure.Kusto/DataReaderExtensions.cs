@@ -23,6 +23,7 @@ public static class DataReaderExtensions
         PropertyNameCaseInsensitive = true,
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         NumberHandling = JsonNumberHandling.AllowReadingFromString,
+        UnmappedMemberHandling = JsonUnmappedMemberHandling.Skip,
     };
 
     public static T[] ReadObjectsFromNextResult<T>(
@@ -168,4 +169,3 @@ public static class DataReaderExtensions
                 value.ToString());
     }
 }
-
