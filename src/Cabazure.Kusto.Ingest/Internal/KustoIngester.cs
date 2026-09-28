@@ -1,4 +1,3 @@
-using System.IO.Pipelines;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using Kusto.Data;
@@ -44,78 +43,22 @@ internal class KustoIngester<T>(
         ArgumentNullException.ThrowIfNull(items);
 
         var sourceId = Guid.NewGuid();
-        var pipe = new Pipe();
-        using var producerCancellation
-            = CancellationTokenSource.CreateLinkedTokenSource(
-                cancellationToken);
-        Task producer = SerializeAsync(
+        await using FileStream sourceStream = CreateTemporaryStream();
+        await SerializeAsync(
             items,
-            pipe.Writer,
-            producerCancellation.Token);
-        using Stream sourceStream = pipe.Reader.AsStream();
-        Task<IKustoIngestionResult> consumer;
-        try
-        {
-            consumer = clientProvider
-                .GetClient(ConnectionName, Mode)
-                .IngestFromStreamAsync(
-                    sourceStream,
-                    CreateIngestionProperties(),
-                    new StreamSourceOptions
-                    {
-                        SourceId = sourceId,
-                    });
-        }
-        catch
-        {
-            await producerCancellation.CancelAsync();
-            await pipe.Reader.CompleteAsync();
-            try
-            {
-                await producer;
-            }
-            catch (OperationCanceledException)
-                when (producerCancellation.IsCancellationRequested)
-            {
-            }
+            sourceStream,
+            cancellationToken);
+        sourceStream.Position = 0;
 
-            cancellationToken.ThrowIfCancellationRequested();
-            throw;
-        }
-
-        try
-        {
-            Task firstCompleted = await Task.WhenAny(
-                producer,
-                consumer);
-            if (firstCompleted == consumer
-                && !consumer.IsCompletedSuccessfully)
-            {
-                await producerCancellation.CancelAsync();
-            }
-
-            await Task.WhenAll(producer, consumer);
-        }
-        catch
-        {
-            await producerCancellation.CancelAsync();
-            await pipe.Reader.CompleteAsync();
-            cancellationToken.ThrowIfCancellationRequested();
-
-            if (producer.IsFaulted)
-            {
-                await producer;
-            }
-
-            if (consumer.IsFaulted)
-            {
-                await consumer;
-            }
-
-            throw;
-        }
-
-        IKustoIngestionResult sdkResult = await consumer;
+        IKustoIngestionResult sdkResult = await clientProvider
+            .GetClient(ConnectionName, Mode)
+            .IngestFromStreamAsync(
+                sourceStream,
+                CreateIngestionProperties(),
+                new StreamSourceOptions
+                {
+                    SourceId = sourceId,
+                });
         IngestionStatus status = sdkResult
             .GetIngestionStatusBySourceId(sourceId);
 
@@ -158,38 +101,38 @@ internal class KustoIngester<T>(
                 $"Kusto ingestion failed with status `{status.Status}`: {status.Details}"),
         };
 
+    private static FileStream CreateTemporaryStream()
+        => new(
+            Path.Combine(
+                Path.GetTempPath(),
+                Path.GetRandomFileName()),
+            FileMode.CreateNew,
+            FileAccess.ReadWrite,
+            FileShare.None,
+            bufferSize: 81920,
+            FileOptions.Asynchronous
+                | FileOptions.DeleteOnClose
+                | FileOptions.SequentialScan);
+
     private async Task SerializeAsync(
         IAsyncEnumerable<T> items,
-        PipeWriter writer,
+        Stream stream,
         CancellationToken cancellationToken)
     {
-        Exception? exception = null;
-        try
+        await foreach (T item in items
+            .WithCancellation(cancellationToken))
         {
-            await using Stream stream = writer.AsStream(leaveOpen: true);
-            await foreach (T item in items
-                .WithCancellation(cancellationToken))
-            {
-                await JsonSerializer.SerializeAsync(
-                    stream,
-                    item,
-                    SerializerOptions,
-                    cancellationToken);
-                await stream.WriteAsync(
-                    "\n"u8.ToArray(),
-                    cancellationToken);
-                await stream.FlushAsync(cancellationToken);
-            }
+            await JsonSerializer.SerializeAsync(
+                stream,
+                item,
+                SerializerOptions,
+                cancellationToken);
+            await stream.WriteAsync(
+                "\n"u8.ToArray(),
+                cancellationToken);
         }
-        catch (Exception ex)
-        {
-            exception = ex;
-            throw;
-        }
-        finally
-        {
-            await writer.CompleteAsync(exception);
-        }
+
+        await stream.FlushAsync(cancellationToken);
     }
 
     private static async IAsyncEnumerable<T> ToAsyncEnumerable(

@@ -51,7 +51,11 @@ public class KustoIngesterTests
             .Returns(client);
         client
             .IngestFromStreamAsync(
-                Arg.Any<Stream>(),
+                Arg.Is<Stream>(stream =>
+                    stream.CanRead
+                    && stream.CanSeek
+                    && stream.Length > 0
+                    && stream.Position == 0),
                 Arg.Any<KustoIngestionProperties>(),
                 Arg.Any<StreamSourceOptions>())
             .Returns(call => ConsumeAsync(
@@ -215,61 +219,7 @@ public class KustoIngesterTests
         await act.Should()
             .ThrowAsync<InvalidOperationException>()
             .Where(e => e == exception);
-    }
-
-    [Theory, AutoNSubstituteData]
-    public async Task IngestAsync_Streams_Before_Source_Completes(
-        IKustoIngestClient client,
-        IKustoIngestionResult sdkResult,
-        string tableName,
-        string mappingName,
-        string databaseName)
-    {
-        IKustoIngestClientProvider clientProvider
-            = Substitute.For<IKustoIngestClientProvider>();
-        var firstRecordRead = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-        string? firstLine = null;
-        string? secondLine = null;
-        clientProvider
-            .GetClient(null, KustoIngestionMode.ManagedStreaming)
-            .Returns(client);
-        client
-            .IngestFromStreamAsync(
-                Arg.Any<Stream>(),
-                Arg.Any<KustoIngestionProperties>(),
-                Arg.Any<StreamSourceOptions>())
-            .Returns(async call =>
-            {
-                using var reader = new StreamReader(
-                    call.ArgAt<Stream>(0));
-                firstLine = await reader.ReadLineAsync();
-                firstRecordRead.SetResult();
-                secondLine = await reader.ReadLineAsync();
-                return sdkResult;
-            });
-        sdkResult
-            .GetIngestionStatusBySourceId(Arg.Any<Guid>())
-            .Returns(call => new IngestionStatus(call.Arg<Guid>())
-            {
-                Status = Status.Succeeded,
-            });
-        var sut = CreateSut(
-            clientProvider,
-            tableName,
-            mappingName,
-            databaseName);
-        using var timeout = new CancellationTokenSource(
-            TimeSpan.FromSeconds(5));
-
-        await sut.IngestAsync(
-            StreamingItems(
-                firstRecordRead.Task,
-                timeout.Token),
-            timeout.Token);
-
-        firstLine.Should().Be("{\"value\":\"one\"}");
-        secondLine.Should().Be("{\"value\":\"two\"}");
+        clientProvider.ReceivedCalls().Should().BeEmpty();
     }
 
     [Theory, AutoNSubstituteData]
@@ -336,11 +286,8 @@ public class KustoIngesterTests
             mappingName,
             databaseName);
 
-        using var timeout = new CancellationTokenSource(
-            TimeSpan.FromSeconds(5));
         Func<Task> act = () => sut.IngestAsync(
-            EndlessItems(timeout.Token),
-            timeout.Token);
+            [new Item("one")]);
 
         await act.Should()
             .ThrowAsync<InvalidOperationException>()
@@ -348,7 +295,7 @@ public class KustoIngesterTests
     }
 
     [Theory, AutoNSubstituteData]
-    public async Task IngestAsync_Cancels_Producer_When_Client_Resolution_Fails(
+    public async Task IngestAsync_Propagates_Client_Resolution_Failure(
         string tableName,
         string mappingName,
         string databaseName,
@@ -359,8 +306,6 @@ public class KustoIngesterTests
         clientProvider
             .GetClient(null, KustoIngestionMode.ManagedStreaming)
             .Returns(_ => throw exception);
-        var enumerationCompleted = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
         var sut = CreateSut(
             clientProvider,
             tableName,
@@ -368,16 +313,15 @@ public class KustoIngesterTests
             databaseName);
 
         Func<Task> act = () => sut.IngestAsync(
-            TrackedEndlessItems(enumerationCompleted));
+            [new Item("one")]);
 
         await act.Should()
             .ThrowAsync<InvalidOperationException>()
             .Where(e => e == exception);
-        enumerationCompleted.Task.IsCompleted.Should().BeTrue();
     }
 
     [Theory, AutoNSubstituteData]
-    public async Task IngestAsync_Cancels_Producer_When_Sdk_Setup_Fails(
+    public async Task IngestAsync_Propagates_Sdk_Setup_Failure(
         IKustoIngestClient client,
         string tableName,
         string mappingName,
@@ -395,8 +339,6 @@ public class KustoIngesterTests
                 Arg.Any<KustoIngestionProperties>(),
                 Arg.Any<StreamSourceOptions>()))
             .Do(_ => throw exception);
-        var enumerationCompleted = new TaskCompletionSource(
-            TaskCreationOptions.RunContinuationsAsynchronously);
         var sut = CreateSut(
             clientProvider,
             tableName,
@@ -404,12 +346,11 @@ public class KustoIngesterTests
             databaseName);
 
         Func<Task> act = () => sut.IngestAsync(
-            TrackedEndlessItems(enumerationCompleted));
+            [new Item("one")]);
 
         await act.Should()
             .ThrowAsync<InvalidOperationException>()
             .Where(e => e == exception);
-        enumerationCompleted.Task.IsCompleted.Should().BeTrue();
     }
 
     [Theory, AutoNSubstituteData]
@@ -535,42 +476,4 @@ public class KustoIngesterTests
         throw exception;
     }
 
-    private static async IAsyncEnumerable<Item> StreamingItems(
-        Task firstRecordRead,
-        [EnumeratorCancellation] CancellationToken cancellationToken)
-    {
-        yield return new Item("one");
-        await firstRecordRead.WaitAsync(cancellationToken);
-        yield return new Item("two");
-    }
-
-    private static async IAsyncEnumerable<Item> EndlessItems(
-        [EnumeratorCancellation] CancellationToken cancellationToken)
-    {
-        while (true)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            yield return new Item("value");
-            await Task.Yield();
-        }
-    }
-
-    private static async IAsyncEnumerable<Item> TrackedEndlessItems(
-        TaskCompletionSource enumerationCompleted,
-        [EnumeratorCancellation] CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            while (true)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                yield return new Item("value");
-                await Task.Yield();
-            }
-        }
-        finally
-        {
-            enumerationCompleted.SetResult();
-        }
-    }
 }

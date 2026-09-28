@@ -294,7 +294,7 @@ public sealed class DataRecordHandler(
 }
 ```
 
-Both `IEnumerable<T>` and `IAsyncEnumerable<T>` are supported. Records are serialized incrementally as newline-delimited JSON, so the complete input isn't buffered in memory.
+Both `IEnumerable<T>` and `IAsyncEnumerable<T>` are supported. Records are serialized incrementally as newline-delimited JSON into a temporary seekable file, then the file is rewound and passed to the Kusto Ingest SDK. This keeps memory usage bounded while satisfying the SDK's stream length and seek requirements. The temporary file is deleted when ingestion completes or fails.
 
 The ingestion registration contains only the record type, table, mapping, and default mode. The injected `IKustoIngester<T>` uses the default Kusto connection and database. Use `IKustoIngesterFactory.Create<T>()` to run the same registered ingestion against another named connection or database.
 
@@ -368,7 +368,7 @@ IKustoIngester<DataRecord> ingester = factory.Create<DataRecord>(
 
 Only one ingestion destination can be registered for a given .NET type. Use a distinct record type when the same data shape must represent a different table or mapping.
 
-The Kusto Ingest SDK doesn't accept a cancellation token for an ingestion request. Cancellation stops Cabazure's enumeration and serialization pipeline, but a request already issued to the SDK might finish through stream termination rather than cooperative service cancellation.
+The Kusto Ingest SDK doesn't accept a cancellation token for an ingestion request. Cancellation stops Cabazure while enumerating and serializing records, but a request already issued to the SDK cannot be cancelled cooperatively.
 
 ## Sample
 

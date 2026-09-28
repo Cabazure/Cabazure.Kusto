@@ -26,7 +26,7 @@ Primary responsibilities:
   - `ExistingStoredQueryHandler<T>` for subsequent paged requests
 - `KustoClientProvider` owns and caches query/admin clients per connection and database.
 - `CabazureKustoBuilder` configures named connections and is extended by the optional `Cabazure.Kusto.Ingest` package.
-- `IKustoIngester<T>` incrementally serializes typed records as JSON lines and uses the registered table, mapping, and ingestion mode.
+- `IKustoIngester<T>` incrementally serializes typed records as JSON lines into a temporary seekable file before passing it to the Kusto Ingest SDK.
 - `IKustoIngesterFactory` overrides connection, database, or ingestion mode while reusing the destination registered for `T`.
 
 ## Expectations for new code
