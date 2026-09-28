@@ -1,5 +1,6 @@
 ﻿using Azure.Core;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Cabazure.Kusto;
 
@@ -13,8 +14,8 @@ public class CabazureKustoOptions
 
     public string? ConnectionString { get; set; }
 
-    public JsonSerializerOptions SerializerOptions { get; set; }
-        = DataReaderExtensions.CreateDefaultJsonOptions();
+    public JsonSerializerOptions SerializerOptions { get; }
+        = CreateDefaultJsonOptions();
 
     public TimeSpan PagedResultExpiration { get; set; } = DefaultPagedResultExpiration;
 
@@ -49,10 +50,26 @@ public class CabazureKustoOptions
         return this;
     }
 
-    public CabazureKustoOptions WithSerializerOptions(
-        JsonSerializerOptions serializerOptions)
+    public CabazureKustoOptions ConfigureSerializerOptions(
+        Action<JsonSerializerOptions> configure)
     {
-        SerializerOptions = serializerOptions;
+        ArgumentNullException.ThrowIfNull(configure);
+
+        configure(SerializerOptions);
         return this;
     }
+
+    internal static JsonSerializerOptions CreateDefaultJsonOptions()
+        => new()
+        {
+            Converters =
+            {
+                new JsonStringEnumConverter(),
+                new DataReaderExtensions.DateOnlyJsonConverter(),
+            },
+            PropertyNameCaseInsensitive = true,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            NumberHandling = JsonNumberHandling.AllowReadingFromString,
+            UnmappedMemberHandling = JsonUnmappedMemberHandling.Skip,
+        };
 }

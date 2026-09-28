@@ -17,16 +17,14 @@ public class KustoIngesterFactoryTests
         string tableName,
         string mappingName)
     {
-        var serializerOptions = new System.Text.Json.JsonSerializerOptions();
+        var options = new CabazureKustoOptions();
+        System.Text.Json.JsonSerializerOptions serializerOptions
+            = options.SerializerOptions;
         IKustoIngestClientProvider clientProvider
             = Substitute.For<IKustoIngestClientProvider>();
         var optionsMonitor = Substitute.For<
             IOptionsMonitor<CabazureKustoOptions>>();
-        optionsMonitor.Get(connectionName).Returns(
-            new CabazureKustoOptions
-            {
-                SerializerOptions = serializerOptions,
-            });
+        optionsMonitor.Get(connectionName).Returns(options);
         connectionStringProvider
             .GetConnectionString(connectionName, null)
             .Returns(new KustoConnectionStringBuilder(
@@ -67,16 +65,14 @@ public class KustoIngesterFactoryTests
         string tableName,
         string mappingName)
     {
-        var serializerOptions = new System.Text.Json.JsonSerializerOptions();
+        var options = new CabazureKustoOptions();
+        System.Text.Json.JsonSerializerOptions serializerOptions
+            = options.SerializerOptions;
         IKustoIngestClientProvider clientProvider
             = Substitute.For<IKustoIngestClientProvider>();
         var optionsMonitor = Substitute.For<
             IOptionsMonitor<CabazureKustoOptions>>();
-        optionsMonitor.Get(requestedConnectionName).Returns(
-            new CabazureKustoOptions
-            {
-                SerializerOptions = serializerOptions,
-            });
+        optionsMonitor.Get(requestedConnectionName).Returns(options);
         connectionStringProvider
             .GetConnectionString(
                 requestedConnectionName,

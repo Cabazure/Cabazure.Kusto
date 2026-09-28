@@ -51,15 +51,33 @@ public class CabazureKustoOptionsTests
     }
 
     [Theory, AutoNSubstituteData]
-    public void WithSerializerOptions_Sets_SerializerOptions(
-        JsonSerializerOptions serializerOptions,
+    public void ConfigureSerializerOptions_Configures_SerializerOptions(
         CabazureKustoOptions sut)
     {
-        CabazureKustoOptions result = sut.WithSerializerOptions(
-            serializerOptions);
+        JsonSerializerOptions serializerOptions = sut.SerializerOptions;
+
+        CabazureKustoOptions result = sut.ConfigureSerializerOptions(
+            options => options.WriteIndented = true);
 
         result.Should().BeSameAs(sut);
         sut.SerializerOptions.Should().BeSameAs(serializerOptions);
+        sut.SerializerOptions.WriteIndented.Should().BeTrue();
+        sut.SerializerOptions.PropertyNameCaseInsensitive.Should().BeTrue();
+        sut.SerializerOptions.Converters
+            .Should()
+            .ContainSingle(c => c is JsonStringEnumConverter)
+            .And
+            .ContainSingle(c => c is DataReaderExtensions.DateOnlyJsonConverter);
+    }
+
+    [Fact]
+    public void ConfigureSerializerOptions_Rejects_Null_Configure()
+    {
+        var sut = new CabazureKustoOptions();
+
+        Action act = () => sut.ConfigureSerializerOptions(null!);
+
+        act.Should().Throw<ArgumentNullException>();
     }
 
     [Fact]

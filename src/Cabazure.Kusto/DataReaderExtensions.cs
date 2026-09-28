@@ -14,21 +14,7 @@ public static class DataReaderExtensions
     const int DotNetDecimalMaxScale = 27;
 
     public static readonly JsonSerializerOptions DefaultJsonOption
-        = CreateDefaultJsonOptions();
-
-    public static JsonSerializerOptions CreateDefaultJsonOptions()
-        => new()
-        {
-            Converters =
-            {
-                new JsonStringEnumConverter(),
-                new DateOnlyJsonConverter(),
-            },
-            PropertyNameCaseInsensitive = true,
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            NumberHandling = JsonNumberHandling.AllowReadingFromString,
-            UnmappedMemberHandling = JsonUnmappedMemberHandling.Skip,
-        };
+        = CabazureKustoOptions.CreateDefaultJsonOptions();
 
     public static T[] ReadObjectsFromNextResult<T>(
         this IDataReader reader)

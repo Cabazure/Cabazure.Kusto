@@ -125,12 +125,10 @@ public class ScriptHandlerFactoryTests
         IDataReader reader,
         CancellationToken cancellationToken)
     {
-        var serializerOptions = new JsonSerializerOptions();
+        var options = new CabazureKustoOptions();
+        JsonSerializerOptions serializerOptions = options.SerializerOptions;
         var monitor = Substitute.For<IOptionsMonitor<CabazureKustoOptions>>();
-        monitor.Get(connectionName).Returns(new CabazureKustoOptions
-        {
-            SerializerOptions = serializerOptions,
-        });
+        monitor.Get(connectionName).Returns(options);
         var queryProvider = Substitute.For<ICslQueryProvider>();
         queryProvider
             .ExecuteQueryAsync(default, default, default, default)
