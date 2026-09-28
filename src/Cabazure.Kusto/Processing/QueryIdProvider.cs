@@ -13,7 +13,7 @@ public class QueryIdProvider : IQueryIdProvider
         string? nonce)
     {
         var queryType = query.GetType();
-        var hash = Hash($"{queryType.FullName}\n{sessionId}\n{nonce}");
+        var hash = Hash(queryType.FullName, sessionId, nonce);
 
         return string
             .Concat(queryType.Name, hash)
@@ -23,27 +23,45 @@ public class QueryIdProvider : IQueryIdProvider
     public string CreateFingerprint(
         IKustoScript query)
     {
-        var builder = new StringBuilder()
-            .Append(query.GetType().FullName)
-            .Append('\n')
-            .Append(query.GetQueryText());
+        var values = new List<string?>
+        {
+            query.GetType().FullName,
+            query.GetQueryText(),
+        };
 
         foreach (var parameter in query
             .GetCslParameters()
             .OrderBy(p => p.Key, StringComparer.Ordinal))
         {
-            builder
-                .Append('\n')
-                .Append(parameter.Key)
-                .Append('=')
-                .Append(parameter.Value);
+            values.Add(parameter.Key);
+            values.Add(parameter.Value);
         }
 
-        return Hash(builder.ToString());
+        return Hash(values.ToArray());
     }
 
-    private static string Hash(string value)
+    private static string Hash(params string?[] values)
         => Convert
-            .ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(value)))
+            .ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(Serialize(values))))
             [..HashLength];
+
+    private static string Serialize(IEnumerable<string?> values)
+    {
+        var builder = new StringBuilder();
+        foreach (var value in values)
+        {
+            if (value is null)
+            {
+                builder.Append("-1:");
+                continue;
+            }
+
+            builder
+                .Append(value.Length)
+                .Append(':')
+                .Append(value);
+        }
+
+        return builder.ToString();
+    }
 }

@@ -90,4 +90,10 @@ public class QueryIdProviderTests
             .Should()
             .Be(sut.CreateFingerprint(second));
     }
+
+    [Fact]
+    public void CreateQueryId_Does_Not_Collide_When_Session_And_Nonce_Contain_Delimiters()
+        => sut.CreateQueryId(new SampleQuery("a"), "session\nnonce", null)
+            .Should()
+            .NotBe(sut.CreateQueryId(new SampleQuery("a"), "session", "nonce"));
 }
