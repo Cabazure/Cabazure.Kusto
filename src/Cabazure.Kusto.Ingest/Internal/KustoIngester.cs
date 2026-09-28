@@ -49,15 +49,35 @@ internal class KustoIngester<T>(
             pipe.Writer,
             producerCancellation.Token);
         using Stream sourceStream = pipe.Reader.AsStream();
-        Task<IKustoIngestionResult> consumer = clientProvider
-            .GetClient(ConnectionName, Mode)
-            .IngestFromStreamAsync(
-                sourceStream,
-                CreateIngestionProperties(),
-                new StreamSourceOptions
-                {
-                    SourceId = sourceId,
-                });
+        Task<IKustoIngestionResult> consumer;
+        try
+        {
+            consumer = clientProvider
+                .GetClient(ConnectionName, Mode)
+                .IngestFromStreamAsync(
+                    sourceStream,
+                    CreateIngestionProperties(),
+                    new StreamSourceOptions
+                    {
+                        SourceId = sourceId,
+                    });
+        }
+        catch
+        {
+            await producerCancellation.CancelAsync();
+            await pipe.Reader.CompleteAsync();
+            try
+            {
+                await producer;
+            }
+            catch (OperationCanceledException)
+                when (producerCancellation.IsCancellationRequested)
+            {
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            throw;
+        }
 
         try
         {

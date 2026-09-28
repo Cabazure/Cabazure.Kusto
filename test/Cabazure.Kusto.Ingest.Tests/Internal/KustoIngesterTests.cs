@@ -326,6 +326,71 @@ public class KustoIngesterTests
     }
 
     [Theory, AutoNSubstituteData]
+    public async Task IngestAsync_Cancels_Producer_When_Client_Resolution_Fails(
+        string tableName,
+        string mappingName,
+        string databaseName,
+        InvalidOperationException exception)
+    {
+        IKustoIngestClientProvider clientProvider
+            = Substitute.For<IKustoIngestClientProvider>();
+        clientProvider
+            .GetClient(null, KustoIngestionMode.ManagedStreaming)
+            .Returns(_ => throw exception);
+        var enumerationCompleted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var sut = CreateSut(
+            clientProvider,
+            tableName,
+            mappingName,
+            databaseName);
+
+        Func<Task> act = () => sut.IngestAsync(
+            TrackedEndlessItems(enumerationCompleted));
+
+        await act.Should()
+            .ThrowAsync<InvalidOperationException>()
+            .Where(e => e == exception);
+        enumerationCompleted.Task.IsCompleted.Should().BeTrue();
+    }
+
+    [Theory, AutoNSubstituteData]
+    public async Task IngestAsync_Cancels_Producer_When_Sdk_Setup_Fails(
+        IKustoIngestClient client,
+        string tableName,
+        string mappingName,
+        string databaseName,
+        InvalidOperationException exception)
+    {
+        IKustoIngestClientProvider clientProvider
+            = Substitute.For<IKustoIngestClientProvider>();
+        clientProvider
+            .GetClient(null, KustoIngestionMode.ManagedStreaming)
+            .Returns(client);
+        client
+            .When(x => x.IngestFromStreamAsync(
+                Arg.Any<Stream>(),
+                Arg.Any<KustoIngestionProperties>(),
+                Arg.Any<StreamSourceOptions>()))
+            .Do(_ => throw exception);
+        var enumerationCompleted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var sut = CreateSut(
+            clientProvider,
+            tableName,
+            mappingName,
+            databaseName);
+
+        Func<Task> act = () => sut.IngestAsync(
+            TrackedEndlessItems(enumerationCompleted));
+
+        await act.Should()
+            .ThrowAsync<InvalidOperationException>()
+            .Where(e => e == exception);
+        enumerationCompleted.Task.IsCompleted.Should().BeTrue();
+    }
+
+    [Theory, AutoNSubstituteData]
     public async Task IngestAsync_Throws_For_Failed_Status(
         IKustoIngestClient client,
         IKustoIngestionResult sdkResult,
@@ -466,6 +531,25 @@ public class KustoIngesterTests
             cancellationToken.ThrowIfCancellationRequested();
             yield return new Item("value");
             await Task.Yield();
+        }
+    }
+
+    private static async IAsyncEnumerable<Item> TrackedEndlessItems(
+        TaskCompletionSource enumerationCompleted,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            while (true)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                yield return new Item("value");
+                await Task.Yield();
+            }
+        }
+        finally
+        {
+            enumerationCompleted.SetResult();
         }
     }
 }
