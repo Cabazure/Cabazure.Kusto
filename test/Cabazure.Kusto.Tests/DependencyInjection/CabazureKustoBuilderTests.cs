@@ -1,6 +1,8 @@
 using Cabazure.Kusto.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Cabazure.Kusto.Tests.DependencyInjection;
 
@@ -45,6 +47,31 @@ public class CabazureKustoBuilderTests
             .DatabaseName
             .Should()
             .Be(databaseName);
+    }
+
+    [Theory, AutoNSubstituteData]
+    public void Configure_Customizes_Seeded_SerializerOptions(
+        ServiceCollection services,
+        string connectionName)
+    {
+        var sut = new CabazureKustoBuilder(
+            services,
+            connectionName);
+
+        sut.Configure(o => o.ConfigureSerializerOptions(
+            json => json.PropertyNamingPolicy = null));
+
+        JsonSerializerOptions serializerOptions = services
+            .BuildServiceProvider()
+            .GetRequiredService<IOptionsMonitor<CabazureKustoOptions>>()
+            .Get(connectionName)
+            .SerializerOptions;
+
+        serializerOptions.PropertyNamingPolicy.Should().BeNull();
+        serializerOptions.PropertyNameCaseInsensitive.Should().BeTrue();
+        serializerOptions.NumberHandling
+            .Should()
+            .Be(JsonNumberHandling.AllowReadingFromString);
     }
 
     [Theory, AutoNSubstituteData]

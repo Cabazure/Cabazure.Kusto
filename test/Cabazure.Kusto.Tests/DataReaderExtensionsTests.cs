@@ -7,7 +7,17 @@ namespace Cabazure.Kusto.Tests;
 
 public class DataReaderExtensionsTests
 {
+    public enum TestState
+    {
+        Active,
+    }
+
     public record TestObject(string Property1, string Property2, string Property3);
+
+    public record CompatibilityTestObject(
+        TestState State,
+        int Count,
+        string DisplayName);
 
     public record RichTestObject(
         bool BoolValue,
@@ -94,6 +104,26 @@ public class DataReaderExtensionsTests
     }
 
     [Fact]
+    public void ReadObject_Uses_Compatibility_Defaults()
+    {
+        var table = new DataTable();
+        table.Columns.Add("STATE", typeof(string));
+        table.Columns.Add("COUNT", typeof(string));
+        table.Columns.Add("DISPLAYNAME", typeof(string));
+        table.Rows.Add("Active", "42", "example");
+        using DataTableReader reader = table.CreateDataReader();
+        reader.Read().Should().BeTrue();
+
+        CompatibilityTestObject result
+            = reader.ReadObject<CompatibilityTestObject>();
+
+        result.Should().Be(new CompatibilityTestObject(
+            TestState.Active,
+            42,
+            "example"));
+    }
+
+    [Fact]
     public void ReadObject_Will_Reuse_Row_Conversion_Rules()
     {
         var dataReader = Substitute.For<IDataReader>();
@@ -143,4 +173,3 @@ public class DataReaderExtensionsTests
             DateOnlyValue: new DateOnly(2026, 9, 25)));
     }
 }
-
