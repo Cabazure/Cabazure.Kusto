@@ -47,7 +47,8 @@ Primary responsibilities:
 
 - Query result contracts should match the projected Kusto column names after camel-case normalization.
 - Query result deserialization and typed ingestion share `CabazureKustoOptions.SerializerOptions` for the effective named connection.
-- Preserve the JSON-based mapping approach and the defaults established by `DataReaderExtensions.CreateDefaultJsonOptions()` unless there is a strong reason to change them.
+- `CabazureKustoOptions` owns the shared serializer defaults. Customize its getter-only options instance through `ConfigureSerializerOptions(...)`; do not replace it or create separate query and ingestion settings.
+- Preserve the JSON-based mapping approach and its seeded defaults unless there is a strong reason to change them. In particular, unmapped-member skipping is required for stored-query paging columns.
 - Be careful with special handling already present for enums, `DateOnly`, `DateTimeOffset`, `SqlDecimal`, `JToken`, and nullable values.
 - If you change result mapping behavior, add or update tests that cover the conversion path from `IDataReader` to the contract type.
 

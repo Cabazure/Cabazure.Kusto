@@ -242,7 +242,7 @@ public sealed class DataRecordHandler(
 
 Both `IEnumerable<T>` and `IAsyncEnumerable<T>` are supported. Records are serialized incrementally as newline-delimited JSON, so the complete input isn't buffered in memory.
 
-`CabazureKustoOptions.SerializerOptions` is shared by typed query-result materialization and typed ingestion for the configured connection. Its defaults preserve Cabazure.Kusto's existing behavior: camel-case names, case-insensitive matching, string enums, `DateOnly`, numbers read from strings, and ignored unmapped members. Override it with `WithSerializerOptions()`:
+`CabazureKustoOptions.SerializerOptions` is shared by typed query-result materialization and typed ingestion for the configured connection. Its defaults preserve Cabazure.Kusto's existing behavior: camel-case names, case-insensitive matching, string enums, `DateOnly`, numbers read from strings, and ignored unmapped members. Customize it with `ConfigureSerializerOptions()`:
 
 ```csharp
 builder.Services.AddCabazureKusto(kusto => kusto
@@ -250,10 +250,12 @@ builder.Services.AddCabazureKusto(kusto => kusto
     .WithHostAddress(clusterUri)
     .WithDatabaseName(databaseName)
     .WithCredential(credential)
-    .WithSerializerOptions(
-      JsonSerializerOptionsFactory.Create()))
+    .ConfigureSerializerOptions(json =>
+      json.PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower))
   .AddIngestion<DataRecord>("RawData", "RawDataMapping"));
 ```
+
+`ConfigureSerializerOptions()` customizes Cabazure.Kusto's preconfigured instance instead of replacing it, so settings that aren't changed retain the compatibility defaults. Configure it during service registration, before the options are first used by a query or ingestion operation.
 
 Named connections can use different serializer options. A processor or ingester created for a named connection uses that connection's `CabazureKustoOptions.SerializerOptions`. Custom `IKustoQuery<T>` and `IKustoStreamQuery<T>` implementations can override the overload receiving `JsonSerializerOptions` to honor the selected configuration.
 
