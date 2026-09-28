@@ -257,7 +257,30 @@ builder.Services.AddCabazureKusto(kusto => kusto
 
 `ConfigureSerializerOptions()` customizes Cabazure.Kusto's preconfigured instance instead of replacing it, so settings that aren't changed retain the compatibility defaults. Configure it during service registration, before the options are first used by a query or ingestion operation.
 
-Named connections can use different serializer options. A processor or ingester created for a named connection uses that connection's `CabazureKustoOptions.SerializerOptions`. Custom `IKustoQuery<T>` and `IKustoStreamQuery<T>` implementations can override the overload receiving `JsonSerializerOptions` to honor the selected configuration.
+Named connections can use different serializer options. A processor or ingester created for a named connection uses that connection's `CabazureKustoOptions.SerializerOptions`. Custom `IKustoQuery<T>` and `IKustoStreamQuery<T>` implementations receive that selected instance in their required result-reading method.
+
+Result mapping always requires the serializer options selected for the effective connection. Custom query implementations must accept and forward them:
+
+```csharp
+public record ConnectorUptimeQuery(string ChargerId)
+  : KustoScript, IKustoQuery<ConnectorUptime?>
+{
+  public ConnectorUptime? ReadResult(
+    IDataReader reader,
+    JsonSerializerOptions serializerOptions)
+    => reader
+      .ReadObjects<ConnectorUptime>(serializerOptions)
+      .FirstOrDefault();
+}
+```
+
+The same applies when calling `ReadObject<T>()`, `ReadObjects<T>()`, or `ReadObjectsFromNextResult<T>()` directly. These methods no longer select global defaults because doing so could bypass the named connection's serializer configuration. Applications using the standard `KustoQuery<T>`, `StreamKustoQuery<T>`, and `IKustoProcessor` flow do not need to pass the options themselves.
+
+When upgrading from a version with the legacy reader overloads:
+
+- Add `JsonSerializerOptions serializerOptions` to custom `IKustoQuery<T>.ReadResult` and `IKustoStreamQuery<T>.ReadResults` implementations.
+- Forward that instance to `DataReaderExtensions` or other JSON serialization operations.
+- Supply serializer options when constructing processing handlers directly. All `NewStoredQueryHandler<T>` constructor arguments, including `includeTotalCount`, are now explicit.
 
 ### Ingestion modes
 
