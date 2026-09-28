@@ -226,7 +226,7 @@ public class ExistingStoredQueryHandlerTests
             .Received(1)
             .ExecuteControlCommandAsync(
                 Arg.Is<string>(s => s == null),
-                $".set-or-replace stored_query_result ['{queryId}'] with (previewCount = 1, expiresAfter = 1800s) <|\n"
+                $".set-or-replace stored_query_result ['{queryId}'] with (previewCount = {maxItemCount}, expiresAfter = 1800s) <|\n"
                 + queryText + "\n"
                 + "| serialize row_number = row_number()\n"
                 + $"| extend cabazure_fingerprint = '{fingerprint}'",

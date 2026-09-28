@@ -94,7 +94,7 @@ public class ExistingStoredQueryHandler<T>(
                     query,
                     queryId,
                     fingerprint,
-                    previewCount: 1,
+                    previewCount: maxItemCount,
                     expiration),
                 query.GetRequestProperties());
     }
