@@ -1,5 +1,7 @@
 ﻿using Cabazure.Kusto;
+using Cabazure.Kusto.DependencyInjection;
 using Cabazure.Kusto.Processing;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 #pragma warning disable IDE0130 // Namespace does not match folder structure
 namespace Microsoft.Extensions.DependencyInjection;
@@ -9,20 +11,40 @@ public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddCabazureKusto(
         this IServiceCollection services,
-        Action<CabazureKustoOptions>? options = null)
+        Action<CabazureKustoBuilder> builder)
+        => AddCabazureKusto(services, null, builder);
+
+    public static IServiceCollection AddCabazureKusto(
+        this IServiceCollection services,
+        string? connectionName,
+        Action<CabazureKustoBuilder> builder)
     {
-        if (options != null)
+        services.AddOptions<CabazureKustoOptions>(connectionName);
+
+        var kustoBuilder = new CabazureKustoBuilder(
+            services,
+            connectionName);
+        builder.Invoke(kustoBuilder);
+
+        services
+            .TryAddSingleton<IKustoConnectionStringProvider, KustoConnectionStringProvider>();
+        services
+            .TryAddSingleton<IKustoClientProvider, KustoClientProvider>();
+        services
+            .TryAddSingleton<IQueryIdProvider, QueryIdProvider>();
+        services
+            .TryAddSingleton<IScriptHandlerFactory, ScriptHandlerFactory>();
+        services
+            .TryAddSingleton<IKustoProcessorFactory, KustoProcessorFactory>();
+
+        if (connectionName == null)
         {
             services
-                .AddOptions<CabazureKustoOptions>()
-                .Configure(options);
+                .TryAddSingleton(s => s
+                    .GetRequiredService<IKustoProcessorFactory>()
+                    .Create());
         }
 
-        return services
-            .AddSingleton<IKustoClientProvider, KustoClientProvider>()
-            .AddSingleton<IQueryIdProvider, QueryIdProvider>()
-            .AddSingleton<IScriptHandlerFactory, ScriptHandlerFactory>()
-            .AddSingleton<IKustoProcessorFactory, KustoProcessorFactory>()
-            .AddSingleton(s => s.GetRequiredService<IKustoProcessorFactory>().Create());
+        return services;
     }
 }

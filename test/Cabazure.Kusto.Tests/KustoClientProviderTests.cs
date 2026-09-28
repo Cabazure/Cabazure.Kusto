@@ -11,9 +11,9 @@ public class KustoClientProviderTests
     public void GetQueryClient_Uses_Configured_Database(
         [Frozen] IOptionsMonitor<CabazureKustoOptions> monitor,
         string databaseName,
-        TokenCredential credential,
-        KustoClientProvider sut)
+        TokenCredential credential)
     {
+        using var sut = CreateSut(monitor);
         monitor.Get(null).Returns(
             CreateOptions(
                 databaseName: databaseName,
@@ -29,9 +29,9 @@ public class KustoClientProviderTests
         [Frozen] IOptionsMonitor<CabazureKustoOptions> monitor,
         string configuredDatabase,
         string requestedDatabase,
-        TokenCredential credential,
-        KustoClientProvider sut)
+        TokenCredential credential)
     {
+        using var sut = CreateSut(monitor);
         monitor.Get(null).Returns(
             CreateOptions(
                 databaseName: configuredDatabase,
@@ -46,9 +46,9 @@ public class KustoClientProviderTests
     public void GetQueryClient_Uses_Requested_Database_For_ConnectionString(
         [Frozen] IOptionsMonitor<CabazureKustoOptions> monitor,
         string configuredDatabase,
-        string requestedDatabase,
-        KustoClientProvider sut)
+        string requestedDatabase)
     {
+        using var sut = CreateSut(monitor);
         monitor.Get(null).Returns(
             CreateOptions(
                 connectionString: HostAddress,
@@ -64,9 +64,9 @@ public class KustoClientProviderTests
         [Frozen] IOptionsMonitor<CabazureKustoOptions> monitor,
         string connectionName,
         string databaseName,
-        TokenCredential credential,
-        KustoClientProvider sut)
+        TokenCredential credential)
     {
+        using var sut = CreateSut(monitor);
         monitor.Get(connectionName).Returns(
             CreateOptions(
                 databaseName: databaseName,
@@ -81,9 +81,9 @@ public class KustoClientProviderTests
     public void GetAdminClient_Uses_Configured_Database(
         [Frozen] IOptionsMonitor<CabazureKustoOptions> monitor,
         string databaseName,
-        TokenCredential credential,
-        KustoClientProvider sut)
+        TokenCredential credential)
     {
+        using var sut = CreateSut(monitor);
         monitor.Get(null).Returns(
             CreateOptions(
                 databaseName: databaseName,
@@ -99,9 +99,9 @@ public class KustoClientProviderTests
         [Frozen] IOptionsMonitor<CabazureKustoOptions> monitor,
         string configuredDatabase,
         string requestedDatabase,
-        TokenCredential credential,
-        KustoClientProvider sut)
+        TokenCredential credential)
     {
+        using var sut = CreateSut(monitor);
         monitor.Get(null).Returns(
             CreateOptions(
                 databaseName: configuredDatabase,
@@ -116,9 +116,9 @@ public class KustoClientProviderTests
     public void GetAdminClient_Uses_Requested_Database_For_ConnectionString(
         [Frozen] IOptionsMonitor<CabazureKustoOptions> monitor,
         string configuredDatabase,
-        string requestedDatabase,
-        KustoClientProvider sut)
+        string requestedDatabase)
     {
+        using var sut = CreateSut(monitor);
         monitor.Get(null).Returns(
             CreateOptions(
                 connectionString: HostAddress,
@@ -131,9 +131,9 @@ public class KustoClientProviderTests
 
     [Theory, AutoNSubstituteData]
     public void GetQueryClient_Throws_When_Connection_Is_Not_Configured(
-        [Frozen] IOptionsMonitor<CabazureKustoOptions> monitor,
-        KustoClientProvider sut)
+        [Frozen] IOptionsMonitor<CabazureKustoOptions> monitor)
     {
+        using var sut = CreateSut(monitor);
         monitor.Get(null).Returns(new CabazureKustoOptions());
 
         var act = () => sut.GetQueryClient();
@@ -154,4 +154,8 @@ public class KustoClientProviderTests
             DatabaseName = databaseName,
             Credential = credential,
         };
+
+    private static KustoClientProvider CreateSut(
+        IOptionsMonitor<CabazureKustoOptions> monitor)
+        => new(new KustoConnectionStringProvider(monitor));
 }
