@@ -1,13 +1,19 @@
 using System.Data;
 using System.Runtime.CompilerServices;
+using System.Text.Json;
 using Kusto.Data.Common;
 
 namespace Cabazure.Kusto.Processing;
 
 public class StreamQueryHandler<T>(
     ICslQueryProvider queryProvider,
-    IKustoStreamQuery<T> query) : IStreamScriptHandler<T>
+    IKustoStreamQuery<T> query,
+    JsonSerializerOptions serializerOptions) : IStreamScriptHandler<T>
 {
+    private readonly JsonSerializerOptions serializerOptions
+        = serializerOptions
+            ?? throw new ArgumentNullException(nameof(serializerOptions));
+
     public async IAsyncEnumerable<T> ExecuteAsync(
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
@@ -21,7 +27,10 @@ public class StreamQueryHandler<T>(
         try
         {
             await foreach (var item in query
-                .ReadResults(reader, cancellationToken)
+                .ReadResults(
+                    reader,
+                    serializerOptions,
+                    cancellationToken)
                 .WithCancellation(cancellationToken))
             {
                 yield return item;

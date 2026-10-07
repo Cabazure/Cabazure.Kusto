@@ -13,30 +13,22 @@ public static class DataReaderExtensions
     const int DotNetDecimalMaxPrecision = 28;
     const int DotNetDecimalMaxScale = 27;
 
-    public static readonly JsonSerializerOptions DefaultJsonOption = new()
-    {
-        Converters =
-        {
-            new JsonStringEnumConverter(),
-            new DateOnlyJsonConverter(),
-        },
-        PropertyNameCaseInsensitive = true,
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        NumberHandling = JsonNumberHandling.AllowReadingFromString,
-        UnmappedMemberHandling = JsonUnmappedMemberHandling.Skip,
-    };
-
     public static T[] ReadObjectsFromNextResult<T>(
-        this IDataReader reader)
-        => reader.NextResult()
-         ? reader.ReadObjects<T>()
+        this IDataReader reader,
+        JsonSerializerOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+
+        return reader.NextResult()
+         ? reader.ReadObjects<T>(options)
          : [];
+    }
 
     public static T[] ReadObjects<T>(
         this IDataReader reader,
-        JsonSerializerOptions? options = null)
+        JsonSerializerOptions options)
     {
-        options ??= DefaultJsonOption;
+        ArgumentNullException.ThrowIfNull(options);
 
         var buffer = new ArrayBufferWriter<byte>();
         using var doc = new Utf8JsonWriter(buffer);
@@ -51,9 +43,9 @@ public static class DataReaderExtensions
 
     public static T ReadObject<T>(
         this IDataReader reader,
-        JsonSerializerOptions? options = null)
+        JsonSerializerOptions options)
     {
-        options ??= DefaultJsonOption;
+        ArgumentNullException.ThrowIfNull(options);
 
         var buffer = new ArrayBufferWriter<byte>();
         using var doc = new Utf8JsonWriter(buffer);
@@ -166,6 +158,8 @@ public static class DataReaderExtensions
             DateOnly value,
             JsonSerializerOptions options)
             => writer.WriteStringValue(
-                value.ToString());
+                value.ToString(
+                    "yyyy-MM-dd",
+                    CultureInfo.InvariantCulture));
     }
 }

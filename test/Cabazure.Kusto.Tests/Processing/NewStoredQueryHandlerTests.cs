@@ -1,4 +1,5 @@
 using System.Data;
+using System.Text.Json;
 using Cabazure.Kusto.Processing;
 using Kusto.Data.Common;
 
@@ -14,6 +15,7 @@ public class NewStoredQueryHandlerTests
     private readonly string queryId;
     private readonly string fingerprint;
     private readonly TimeSpan expiration = TimeSpan.FromMinutes(30);
+    private readonly JsonSerializerOptions serializerOptions;
     private readonly NewStoredQueryHandler<string> sut;
 
     public NewStoredQueryHandlerTests()
@@ -28,11 +30,38 @@ public class NewStoredQueryHandlerTests
         queryId = fixture.Create<string>().ToAlphaNumeric();
 
         fingerprint = fixture.Create<string>().ToAlphaNumeric();
+        serializerOptions = new JsonSerializerOptions();
 
         queryIdProvider.CreateQueryId(default!, default, default).ReturnsForAnyArgs(queryId);
         queryIdProvider.CreateFingerprint(default!).ReturnsForAnyArgs(fingerprint);
 
-        sut = new(queryIdProvider, adminProvider, query, sessionId, maxItemCount, expiration);
+        sut = new(
+            queryIdProvider,
+            adminProvider,
+            query,
+            sessionId,
+            maxItemCount,
+            expiration,
+            includeTotalCount: false,
+            serializerOptions: serializerOptions);
+    }
+
+    [Fact]
+    public void Constructor_Rejects_Null_SerializerOptions()
+    {
+        Action act = () => new NewStoredQueryHandler<string>(
+            queryIdProvider,
+            adminProvider,
+            query,
+            sessionId,
+            maxItemCount,
+            expiration,
+            includeTotalCount: false,
+            serializerOptions: null!);
+
+        act.Should()
+            .Throw<ArgumentNullException>()
+            .WithParameterName("serializerOptions");
     }
 
     [Theory, AutoNSubstituteData]
@@ -59,7 +88,9 @@ public class NewStoredQueryHandlerTests
             query,
             sessionId: null,
             maxItemCount,
-            expiration);
+            expiration,
+            includeTotalCount: false,
+            serializerOptions);
 
         await sut.ExecuteAsync(cancellationToken);
 
@@ -84,7 +115,7 @@ public class NewStoredQueryHandlerTests
             .ExecuteControlCommandAsync(default, default, default)
             .ReturnsForAnyArgs(reader);
         query
-            .ReadResult(default)
+            .ReadResult(default, default!)
             .ReturnsForAnyArgs(["a", "b", "c"]);
         var sut = new NewStoredQueryHandler<string>(
             queryIdProvider,
@@ -92,7 +123,9 @@ public class NewStoredQueryHandlerTests
             query,
             sessionId: null,
             maxItemCount,
-            expiration);
+            expiration,
+            includeTotalCount: false,
+            serializerOptions);
 
         var result = await sut.ExecuteAsync(cancellationToken);
 
@@ -138,7 +171,9 @@ public class NewStoredQueryHandlerTests
             query,
             sessionId,
             maxItemCount,
-            TimeSpan.FromHours(2));
+            TimeSpan.FromHours(2),
+            includeTotalCount: false,
+            serializerOptions);
 
         await sut.ExecuteAsync(cancellationToken);
 
@@ -163,7 +198,9 @@ public class NewStoredQueryHandlerTests
 
         _ = query
             .Received(1)
-            .ReadResult(reader);
+            .ReadResult(
+                reader,
+                serializerOptions);
     }
 
     [Theory, AutoNSubstituteData]
@@ -176,7 +213,7 @@ public class NewStoredQueryHandlerTests
             .ExecuteControlCommandAsync(default, default, default)
             .ReturnsForAnyArgs(reader);
         query
-            .ReadResult(default)
+            .ReadResult(default, default!)
             .ReturnsForAnyArgs(queryResult);
 
         var result = await sut.ExecuteAsync(cancellationToken);
@@ -201,7 +238,7 @@ public class NewStoredQueryHandlerTests
             .ExecuteControlCommandAsync(default, default, default)
             .ReturnsForAnyArgs(reader);
         query
-            .ReadResult(default)
+            .ReadResult(default, default!)
             .ReturnsForAnyArgs(queryResult);
 
         await sut.ExecuteAsync(cancellationToken);
@@ -273,7 +310,7 @@ public class NewStoredQueryHandlerTests
             .ExecuteControlCommandAsync(default, default, default)
             .ReturnsForAnyArgs(reader);
         query
-            .ReadResult(default)
+            .ReadResult(default, default!)
             .ReturnsForAnyArgs(queryResult);
         var sut = CreateSut(includeTotalCount: true);
 
@@ -294,7 +331,15 @@ public class NewStoredQueryHandlerTests
     }
 
     private NewStoredQueryHandler<string> CreateSut(bool includeTotalCount)
-        => new(queryIdProvider, adminProvider, query, sessionId, maxItemCount, expiration, includeTotalCount);
+        => new(
+            queryIdProvider,
+            adminProvider,
+            query,
+            sessionId,
+            maxItemCount,
+            expiration,
+            includeTotalCount,
+            serializerOptions);
 
     private void SetupStoredQueryResult(
         IDataReader reader,
@@ -319,7 +364,9 @@ public class NewStoredQueryHandlerTests
                 Arg.Any<ClientRequestProperties>())
             .Returns(_ => table.CreateDataReader());
         query
-            .ReadResult(reader)
+            .ReadResult(
+                reader,
+                Arg.Any<System.Text.Json.JsonSerializerOptions>())
             .Returns(queryResult);
     }
 }
