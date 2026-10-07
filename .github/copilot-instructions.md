@@ -19,6 +19,7 @@ Primary responsibilities:
 - `KustoQuery<T>` represents scripts with typed output. The default implementation reads objects from `IDataReader` through `DataReaderExtensions`.
 - `KustoScriptExtensions` converts script parameters into `ClientRequestProperties` and CSL literals.
 - `IKustoProcessor` / `KustoProcessor` are the public execution entry points.
+- `KustoProcessor` translates any non-`OperationCanceledException` thrown after the caller's `CancellationToken` is canceled (e.g. `KustoClientRequestCanceledByUserException`) into an `OperationCanceledException` via `KustoCancellation`. Keep new execution paths routed through it.
 - `IScriptHandlerFactory` selects the execution strategy:
   - `SimpleCommandHandler` for commands
   - `SimpleQueryHandler<T>` for normal queries

@@ -17,22 +17,40 @@ public class KustoProcessor(
     public async Task ExecuteAsync(
         IKustoCommand command,
         CancellationToken cancellationToken)
-        => await factory
-            .Create(
-                command,
-                ConnectionName,
-                DatabaseName)
-            .ExecuteAsync(cancellationToken);
+    {
+        try
+        {
+            await factory
+                .Create(
+                    command,
+                    ConnectionName,
+                    DatabaseName)
+                .ExecuteAsync(cancellationToken);
+        }
+        catch (Exception ex) when (ex.IsCanceledBy(cancellationToken))
+        {
+            throw ex.ToOperationCanceled(cancellationToken);
+        }
+    }
 
     public async Task<T?> ExecuteAsync<T>(
         IKustoQuery<T> query,
         CancellationToken cancellationToken)
-        => await factory
-            .Create(
-                query,
-                ConnectionName,
-                DatabaseName)
-            .ExecuteAsync(cancellationToken);
+    {
+        try
+        {
+            return await factory
+                .Create(
+                    query,
+                    ConnectionName,
+                    DatabaseName)
+                .ExecuteAsync(cancellationToken);
+        }
+        catch (Exception ex) when (ex.IsCanceledBy(cancellationToken))
+        {
+            throw ex.ToOperationCanceled(cancellationToken);
+        }
+    }
 
     public Task<PagedResult<T>?> ExecuteAsync<T>(
         IKustoQuery<IReadOnlyList<T>> query,
@@ -58,16 +76,23 @@ public class KustoProcessor(
     {
         if (maxItemCount is { } count)
         {
-            return await factory
-                .Create(
-                    query,
-                    sessionId,
-                    count,
-                    continuationToken,
-                    ConnectionName,
-                    DatabaseName,
-                    includeTotalCount)
-                .ExecuteAsync(cancellationToken);
+            try
+            {
+                return await factory
+                    .Create(
+                        query,
+                        sessionId,
+                        count,
+                        continuationToken,
+                        ConnectionName,
+                        DatabaseName,
+                        includeTotalCount)
+                    .ExecuteAsync(cancellationToken);
+            }
+            catch (Exception ex) when (ex.IsCanceledBy(cancellationToken))
+            {
+                throw ex.ToOperationCanceled(cancellationToken);
+            }
         }
 
         IReadOnlyList<T> items = await ExecuteAsync(query, cancellationToken) ?? [];
@@ -80,10 +105,22 @@ public class KustoProcessor(
     public IAsyncEnumerable<T> ExecuteAsync<T>(
         IKustoStreamQuery<T> query,
         CancellationToken cancellationToken)
-        => factory
-            .CreateStream(
-                query,
-                ConnectionName,
-                DatabaseName)
-            .ExecuteAsync(cancellationToken);
+    {
+        IAsyncEnumerable<T> source;
+        try
+        {
+            source = factory
+                .CreateStream(
+                    query,
+                    ConnectionName,
+                    DatabaseName)
+                .ExecuteAsync(cancellationToken);
+        }
+        catch (Exception ex) when (ex.IsCanceledBy(cancellationToken))
+        {
+            throw ex.ToOperationCanceled(cancellationToken);
+        }
+
+        return source.WithCancellationTranslation(cancellationToken);
+    }
 }
