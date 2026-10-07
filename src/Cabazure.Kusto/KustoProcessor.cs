@@ -105,11 +105,22 @@ public class KustoProcessor(
     public IAsyncEnumerable<T> ExecuteAsync<T>(
         IKustoStreamQuery<T> query,
         CancellationToken cancellationToken)
-        => factory
-            .CreateStream(
-                query,
-                ConnectionName,
-                DatabaseName)
-            .ExecuteAsync(cancellationToken)
-            .WithCancellationTranslation(cancellationToken);
+    {
+        IAsyncEnumerable<T> source;
+        try
+        {
+            source = factory
+                .CreateStream(
+                    query,
+                    ConnectionName,
+                    DatabaseName)
+                .ExecuteAsync(cancellationToken);
+        }
+        catch (Exception ex) when (ex.IsCanceledBy(cancellationToken))
+        {
+            throw ex.ToOperationCanceled(cancellationToken);
+        }
+
+        return source.WithCancellationTranslation(cancellationToken);
+    }
 }

@@ -27,7 +27,16 @@ internal static class KustoCancellation
         this IAsyncEnumerable<T> source,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        var enumerator = source.GetAsyncEnumerator(cancellationToken);
+        IAsyncEnumerator<T> enumerator;
+        try
+        {
+            enumerator = source.GetAsyncEnumerator(cancellationToken);
+        }
+        catch (Exception ex) when (ex.IsCanceledBy(cancellationToken))
+        {
+            throw ex.ToOperationCanceled(cancellationToken);
+        }
+
         try
         {
             while (true)
@@ -52,7 +61,21 @@ internal static class KustoCancellation
         }
         finally
         {
+            await DisposeAsync(enumerator, cancellationToken);
+        }
+    }
+
+    private static async ValueTask DisposeAsync<T>(
+        IAsyncEnumerator<T> enumerator,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
             await enumerator.DisposeAsync();
+        }
+        catch (Exception ex) when (ex.IsCanceledBy(cancellationToken))
+        {
+            throw ex.ToOperationCanceled(cancellationToken);
         }
     }
 }

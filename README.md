@@ -172,7 +172,7 @@ app.MapGet(
 
 #### Cancellation
 
-When the `CancellationToken` passed to `IKustoProcessor` is canceled, the processor always throws an `OperationCanceledException`, with the token set and the original exception as `InnerException`. The Kusto SDK itself reports a canceled request with its own exception types, such as `KustoClientRequestCanceledByUserException`, or with transport errors. Hosts like ASP.NET Core only recognize `OperationCanceledException` as cancellation. So if a client disconnects while a query runs, the request no longer ends as an unhandled exception and a 500 response. This applies to commands, queries, paged queries and streaming queries.
+When the `CancellationToken` passed to `IKustoProcessor` is canceled, the processor always throws an `OperationCanceledException`. When it translates a different exception, the new `OperationCanceledException` carries the token and keeps the original exception as `InnerException`. An `OperationCanceledException` that was already thrown is rethrown unchanged, with its original fields. The Kusto SDK itself reports a canceled request with its own exception types, such as `KustoClientRequestCanceledByUserException`, or with transport errors. Hosts like ASP.NET Core only recognize `OperationCanceledException` as cancellation. So if a client disconnects while a query runs, the request no longer ends as an unhandled exception and a 500 response. This applies to commands, queries, paged queries and streaming queries.
 
 Exceptions are only translated when the token was canceled. A `KustoClientRequestCanceledByUserException` raised for other reasons, such as a `.cancel query` command, is passed through unchanged.
 

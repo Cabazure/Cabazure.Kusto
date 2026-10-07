@@ -351,6 +351,99 @@ public class KustoProcessorTests
     }
 
     [Theory, AutoNSubstituteData]
+    public async Task ExecuteAsync_Will_Throw_OperationCanceledException_When_Stream_Creation_Fails_After_Cancel(
+        [Frozen] IScriptHandlerFactory factory,
+        [Modest] KustoProcessor sut,
+        IKustoStreamQuery<T> query,
+        IStreamScriptHandler<T> handler)
+    {
+        using var cts = CreateCanceledTokenSource();
+        var kustoException = new KustoClientRequestCanceledByUserException();
+        factory
+            .CreateStream<T>(default, default, default)
+            .ReturnsForAnyArgs(handler);
+        handler
+            .ExecuteAsync(cts.Token)
+            .Throws(kustoException);
+
+        var act = () => Task.FromResult(sut.ExecuteAsync(query, cts.Token));
+
+        await ShouldBeTranslated(act, kustoException, cts.Token);
+    }
+
+    [Theory, AutoNSubstituteData]
+    public async Task ExecuteAsync_Will_Throw_OperationCanceledException_When_Stream_Enumerator_Acquisition_Fails_After_Cancel(
+        [Frozen] IScriptHandlerFactory factory,
+        [Modest] KustoProcessor sut,
+        IKustoStreamQuery<T> query,
+        IStreamScriptHandler<T> handler,
+        IAsyncEnumerable<T> source)
+    {
+        using var cts = CreateCanceledTokenSource();
+        var kustoException = new KustoClientRequestCanceledByUserException();
+        factory
+            .CreateStream<T>(default, default, default)
+            .ReturnsForAnyArgs(handler);
+        handler
+            .ExecuteAsync(cts.Token)
+            .Returns(source);
+        source
+            .GetAsyncEnumerator(cts.Token)
+            .Throws(kustoException);
+
+        var act = async () =>
+        {
+            await foreach (var item in sut.ExecuteAsync(query, cts.Token))
+            {
+                _ = item;
+            }
+        };
+
+        await ShouldBeTranslated(act, kustoException, cts.Token);
+    }
+
+    [Theory, AutoNSubstituteData]
+    public async Task ExecuteAsync_Will_Throw_OperationCanceledException_When_Stream_Disposal_Fails_After_Cancel(
+        [Frozen] IScriptHandlerFactory factory,
+        [Modest] KustoProcessor sut,
+        IKustoStreamQuery<T> query,
+        IStreamScriptHandler<T> handler,
+        IAsyncEnumerable<T> source,
+        IAsyncEnumerator<T> enumerator,
+        T queryResult)
+    {
+        using var cts = new CancellationTokenSource();
+        var kustoException = new KustoClientRequestCanceledByUserException();
+        factory
+            .CreateStream<T>(default, default, default)
+            .ReturnsForAnyArgs(handler);
+        handler
+            .ExecuteAsync(cts.Token)
+            .Returns(source);
+        source
+            .GetAsyncEnumerator(cts.Token)
+            .Returns(enumerator);
+        enumerator
+            .MoveNextAsync()
+            .Returns(new ValueTask<bool>(true));
+        enumerator.Current.Returns(queryResult);
+        enumerator
+            .DisposeAsync()
+            .Returns(_ => ValueTask.FromException(kustoException));
+
+        var act = async () =>
+        {
+            await foreach (var item in sut.ExecuteAsync(query, cts.Token))
+            {
+                await cts.CancelAsync();
+                break;
+            }
+        };
+
+        await ShouldBeTranslated(act, kustoException, cts.Token);
+    }
+
+    [Theory, AutoNSubstituteData]
     public async Task ExecuteAsync_Will_Not_Translate_Exception_When_Not_Canceled(
         [Frozen] IScriptHandlerFactory factory,
         [Modest] KustoProcessor sut,
