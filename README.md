@@ -55,6 +55,7 @@ Version 1.3.0 introduces typed ingestion and consolidates dependency injection a
 - Custom `IKustoStreamQuery<T>` implementations must likewise accept `JsonSerializerOptions` in `ReadResults`.
 - Direct calls to `ReadObject<T>()`, `ReadObjects<T>()`, and `ReadObjectsFromNextResult<T>()` must pass serializer options explicitly.
 - Code constructing query handlers directly must supply serializer options. `NewStoredQueryHandler<T>` also requires an explicit `includeTotalCount` argument.
+- When the `CancellationToken` is canceled, `IKustoProcessor` now throws `OperationCanceledException` instead of the Kusto SDK's exception, such as `KustoClientRequestCanceledByUserException`. The original exception is available as `InnerException`. Code that catches the Kusto exception to detect cancellation should catch `OperationCanceledException` instead. See [Cancellation](#cancellation).
 
 Applications using queries derived from `KustoQuery<T>` or `StreamKustoQuery<T>` through `IKustoProcessor` require no query migration.
 
@@ -168,6 +169,12 @@ app.MapGet(
         new CustomerQuery("type"),
         cancellationToken));
 ```
+
+#### Cancellation
+
+When the `CancellationToken` passed to `IKustoProcessor` is canceled, the processor always throws an `OperationCanceledException`, with the token set and the original exception as `InnerException`. The Kusto SDK itself reports a canceled request with its own exception types, such as `KustoClientRequestCanceledByUserException`, or with transport errors. Hosts like ASP.NET Core only recognize `OperationCanceledException` as cancellation. So if a client disconnects while a query runs, the request no longer ends as an unhandled exception and a 500 response. This applies to commands, queries, paged queries and streaming queries.
+
+Exceptions are only translated when the token was canceled. A `KustoClientRequestCanceledByUserException` raised for other reasons, such as a `.cancel query` command, is passed through unchanged.
 
 The processor can also perform pagination by using the `ExecuteAsync` overload, taking in a session id, a continuation token and a max item count, like this:
 
