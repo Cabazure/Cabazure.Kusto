@@ -1,6 +1,6 @@
-﻿using Azure.Core;
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.Json.Serialization;
+using Azure.Core;
 
 namespace Cabazure.Kusto;
 
@@ -16,6 +16,16 @@ public class CabazureKustoOptions
 
     public JsonSerializerOptions SerializerOptions { get; }
         = CreateDefaultJsonOptions();
+
+    /// <summary>
+    /// Converts empty scalar query values mapped to nullable string properties to null.
+    /// Dynamic values and non-nullable strings are unchanged. Disabled by default.
+    /// </summary>
+    public bool ConvertEmptyNullableStringsToNull
+    {
+        get => NullableStringResultMapping.IsEnabled(SerializerOptions);
+        set => NullableStringResultMapping.Configure(SerializerOptions, value);
+    }
 
     public TimeSpan PagedResultExpiration { get; set; } = DefaultPagedResultExpiration;
 

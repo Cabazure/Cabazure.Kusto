@@ -64,6 +64,8 @@ public static class DataReaderExtensions
 
         doc.WriteStartObject();
 
+        var nullableStrings = NullableStringResultMapping.GetNullableProperties<T>(options);
+
         for (int i = 0; i < reader.FieldCount; i++)
         {
             var name = reader.GetName(i);
@@ -72,7 +74,8 @@ public static class DataReaderExtensions
                 name = np.ConvertName(name);
             }
 
-            var value = reader.GetDataTypeName(i) switch
+            var dataTypeName = reader.GetDataTypeName(i);
+            var value = dataTypeName switch
             {
                 nameof(SByte) => reader.GetBoolean(i),
                 _ => reader.GetValue(i)
@@ -86,7 +89,10 @@ public static class DataReaderExtensions
                     jtoken.ToString(
                         Newtonsoft.Json.Formatting.None));
             }
-            else if (value is DBNull)
+            else if (value is DBNull
+                || (value is string { Length: 0 }
+                    && string.Equals(dataTypeName, nameof(String), StringComparison.OrdinalIgnoreCase)
+                    && nullableStrings?.Contains(name) == true))
             {
                 doc.WriteNullValue();
             }

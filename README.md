@@ -106,6 +106,33 @@ One builder callback can configure the default connection and any number of name
 
 The connection can use `WithConnectionString()` instead of `WithHostAddress()`. In both cases, `WithDatabaseName()` sets the default database. A query can override the connection or database through `IKustoProcessorFactory.Create()`.
 
+#### Nullable strings in query results
+
+ADX scalar string columns represent missing values as empty strings. To map empty
+scalar values to `null` when the destination property is a nullable `string`, opt in
+before executing queries:
+
+```csharp
+builder.Services.AddCabazureKusto(kusto => kusto.Configure(options =>
+{
+    options.ConvertEmptyNullableStringsToNull = true;
+}));
+```
+
+The policy uses the configured JSON contract's input nullability and property names,
+including constructor-bound records and source-generated metadata. Non-nullable
+strings, whitespace, nonempty strings, and dynamic payloads (including nested
+objects and arrays) are unchanged. String-backed enums are not included.
+Types without nullable annotations follow the JSON contract's nullable input
+metadata, which can treat unannotated reference properties as nullable.
+
+This is disabled by default because nullable strings can legitimately contain empty
+strings. It applies to standard, paged, and streaming row mapping, including custom
+queries that use `ReadObject<T>()` or `ReadObjects<T>()` with the connection's
+`SerializerOptions`. It does not change general JSON serialization or ingestion.
+The policy is associated with that serializer-options instance; copying
+`JsonSerializerOptions` does not copy the policy.
+
 ### 2. Adding a Kusto query
 
 A Kusto query is added by creating two files to your project:

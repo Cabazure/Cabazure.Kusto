@@ -2,6 +2,7 @@ using System.Data;
 using System.Data.SqlTypes;
 using System.Globalization;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Kusto.Cloud.Platform.Utils;
 using Newtonsoft.Json.Linq;
 
@@ -32,6 +33,90 @@ public class DataReaderExtensionsTests
         DateOnly DateOnlyValue);
 
     public record NestedTestObject(string Name, int Count);
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public void ReadObjects_Normalizes_Only_Empty_Nullable_Scalar_Strings_When_Enabled(
+        bool enabled,
+        bool sourceGenerated)
+    {
+        var options = new CabazureKustoOptions
+        {
+            ConvertEmptyNullableStringsToNull = enabled,
+        };
+        if (sourceGenerated)
+        {
+            options.SerializerOptions.TypeInfoResolver = NullableStringTestContext.Default;
+        }
+
+        var table = new DataTable();
+        table.Columns.Add("WIRE_REASON", typeof(string));
+        table.Columns.Add("REQUIRED", typeof(string));
+        table.Columns.Add("NESTED", typeof(object));
+        table.Columns.Add("unknownColumn", typeof(string));
+        foreach (var value in new object[] { "", " ", "reason", DBNull.Value })
+        {
+            table.Rows.Add(value, "", JObject.Parse("""{"value":""}"""), "");
+        }
+
+        using var reader = table.CreateDataReader();
+        var result = reader.ReadObjects<NullableStringTestRow>(options.SerializerOptions);
+
+        result.Select(r => r.Optional).Should().Equal(enabled
+            ? [null, " ", "reason", null]
+            : ["", " ", "reason", null]);
+        result.Should().OnlyContain(r => r.Required == "" && r.Nested.Value == "");
+
+        JsonSerializer.Deserialize<NullableStringTestRow>(
+            """{"wire_reason":"","required":"","nested":{"value":""}}""",
+            options.SerializerOptions)!.Optional.Should().Be("");
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ReadObject_Preserves_Dynamic_String_Values(bool wrapped)
+    {
+        var options = new CabazureKustoOptions
+        {
+            ConvertEmptyNullableStringsToNull = true,
+        };
+        var table = new DataTable();
+        table.Columns.Add("wire_reason", typeof(object));
+        table.Columns.Add("required", typeof(string));
+        table.Columns.Add("nested", typeof(object));
+        table.Rows.Add(wrapped ? new JValue("") : "", "", JObject.Parse("""{"value":null}"""));
+        using var reader = table.CreateDataReader();
+        reader.Read();
+
+        var result = reader.ReadObject<NullableStringTestRow>(options.SerializerOptions);
+
+        result.Optional.Should().Be("");
+        result.Nested.Value.Should().BeNull();
+    }
+
+    [Fact]
+    public void ReadObject_Uses_Case_Sensitive_Json_Names_When_Configured()
+    {
+        var options = new CabazureKustoOptions
+        {
+            ConvertEmptyNullableStringsToNull = true,
+        };
+        options.SerializerOptions.PropertyNameCaseInsensitive = false;
+        var table = new DataTable();
+        table.Columns.Add("wire_reason", typeof(string));
+        table.Columns.Add("required", typeof(string));
+        table.Columns.Add("nested", typeof(object));
+        table.Rows.Add("", "", JObject.Parse("""{"value":""}"""));
+        using var reader = table.CreateDataReader();
+        reader.Read();
+
+        reader.ReadObject<NullableStringTestRow>(options.SerializerOptions)
+            .Optional.Should().BeNull();
+    }
 
     [Fact]
     public void DateOnlyJsonConverter_Writes_Invariant_Iso_Date()
@@ -238,3 +323,14 @@ public class DataReaderExtensionsTests
             DateOnlyValue: new DateOnly(2026, 9, 25)));
     }
 }
+
+internal record NullableStringTestRow(
+    [property: JsonPropertyName("wire_reason")] string? Optional,
+    string Required,
+    NullableStringTestNested Nested);
+
+internal record NullableStringTestNested(string? Value);
+
+[JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
+[JsonSerializable(typeof(NullableStringTestRow))]
+internal partial class NullableStringTestContext : JsonSerializerContext;
