@@ -1,11 +1,22 @@
-using Azure.Core;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Azure.Core;
 
 namespace Cabazure.Kusto.Tests;
 
 public class CabazureKustoOptionsTests
 {
+    [Fact]
+    public void ConvertEmptyNullableStringsToNull_Cannot_Change_After_Options_Are_Locked()
+    {
+        var sut = new CabazureKustoOptions();
+        sut.SerializerOptions.MakeReadOnly(populateMissingResolver: true);
+
+        Action act = () => sut.ConvertEmptyNullableStringsToNull = true;
+
+        act.Should().Throw<InvalidOperationException>();
+    }
+
     [Theory, AutoNSubstituteData]
     public void WithHostAddress_Sets_HostAddress(
         Uri hostAddress,

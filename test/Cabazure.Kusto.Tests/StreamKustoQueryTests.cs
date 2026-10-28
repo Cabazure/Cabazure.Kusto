@@ -17,8 +17,11 @@ public class StreamKustoQueryTests
 
     public record NestedStreamQueryTestObject(string Name, int Count);
 
-    [Fact]
-    public async Task ReadResults_Will_Return_Same_Objects_As_ReadObjects()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ReadResults_Will_Return_Same_Objects_As_ReadObjects(
+        bool normalizeNullableStrings)
     {
         var values = new[]
         {
@@ -26,7 +29,7 @@ public class StreamKustoQueryTests
             {
                 true,
                 SqlDecimal.Parse("123.45"),
-                DBNull.Value,
+                "",
                 JObject.Parse("""{"name":"first","count":1}"""),
                 "2026-09-25T00:00:00+00:00",
             },
@@ -58,8 +61,10 @@ public class StreamKustoQueryTests
 
         var eagerReader = CreateReader(values, fieldNames, typeNames);
         var streamReader = CreateReader(values, fieldNames, typeNames);
-        var serializerOptions = new CabazureKustoOptions()
-            .SerializerOptions;
+        var serializerOptions = new CabazureKustoOptions
+        {
+            ConvertEmptyNullableStringsToNull = normalizeNullableStrings,
+        }.SerializerOptions;
         var expected = eagerReader.ReadObjects<StreamQueryTestObject>(
             serializerOptions);
         var query = new TestStreamQuery();
@@ -74,6 +79,7 @@ public class StreamKustoQueryTests
         }
 
         actual.Should().BeEquivalentTo(expected);
+        actual[0].NullableValue.Should().Be(normalizeNullableStrings ? null : "");
     }
 
     private static IDataReader CreateReader(
