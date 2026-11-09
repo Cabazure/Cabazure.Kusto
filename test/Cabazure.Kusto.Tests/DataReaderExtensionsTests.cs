@@ -34,6 +34,37 @@ public class DataReaderExtensionsTests
 
     public record NestedTestObject(string Name, int Count);
 
+    public record NullableBooleanTestObject(bool? IsConnected);
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ReadObjects_Preserves_Nullable_Booleans_Reported_As_SByte(bool? value)
+    {
+        var dataReader = Substitute.For<IDataReader>();
+        object fieldValue = value.HasValue ? value.Value : DBNull.Value;
+        dataReader.FieldCount.Returns(1);
+        dataReader.GetName(0).Returns("isConnected");
+        dataReader.GetDataTypeName(0).Returns(nameof(SByte));
+        dataReader.IsDBNull(0).Returns(!value.HasValue);
+        dataReader.GetValue(0).Returns(fieldValue);
+        dataReader.GetBoolean(0).Returns(_ => Convert.ToBoolean(fieldValue, CultureInfo.InvariantCulture));
+        dataReader.Read().Returns(true, false);
+
+        var result = dataReader.ReadObjects<NullableBooleanTestObject>(serializerOptions);
+
+        result.Should().ContainSingle().Which.IsConnected.Should().Be(value);
+        if (value is null)
+        {
+            dataReader.DidNotReceive().GetBoolean(0);
+        }
+        else
+        {
+            dataReader.Received(1).GetBoolean(0);
+        }
+    }
+
     [Theory]
     [InlineData(false, false)]
     [InlineData(false, true)]
