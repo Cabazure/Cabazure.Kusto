@@ -77,6 +77,7 @@ public static class DataReaderExtensions
             var dataTypeName = reader.GetDataTypeName(i);
             var value = dataTypeName switch
             {
+                _ when reader.IsDBNull(i) => DBNull.Value,
                 nameof(SByte) => reader.GetBoolean(i),
                 _ => reader.GetValue(i)
             };
