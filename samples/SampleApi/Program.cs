@@ -37,10 +37,11 @@ app.MapGet(
         CancellationToken cancellationToken)
         => await processor.ExecuteAsync(
             new CustomersQuery(),
-            sessionId,
-            maxItemCount ?? 100,
-            continuationToken,
-            includeTotalCount ?? false,
+            new StoredResultPagination(
+                SessionId: sessionId,
+                MaxItemCount: maxItemCount ?? 100,
+                ContinuationToken: continuationToken,
+                IncludeTotalCount: includeTotalCount ?? false),
             cancellationToken))
     .WithName("ListCustomers");
 

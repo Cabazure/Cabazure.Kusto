@@ -514,6 +514,51 @@ public class KustoProcessorTests
     }
 
     [Theory, AutoNSubstituteData]
+    public async Task ExecuteAsync_Translates_StoredResult_Request_Cancellation(
+        [Frozen] IScriptHandlerFactory factory,
+        [Modest] KustoProcessor sut,
+        IKustoQuery<IReadOnlyList<T>> query,
+        IScriptHandler<PagedResult<T>> handler)
+    {
+        using var cts = CreateCanceledTokenSource();
+        var exception = new KustoClientRequestCanceledByUserException();
+        var pagination = new StoredResultPagination(null, 50);
+        factory.Create(query, null, 50, null, sut.ConnectionName, sut.DatabaseName, false).Returns(handler);
+        handler.ExecuteAsync(cts.Token).ThrowsAsync(exception);
+
+        await ShouldBeTranslated(() => sut.ExecuteAsync(query, pagination, cts.Token), exception, cts.Token);
+    }
+
+    [Theory]
+    [InlineData(false, "session")]
+    [InlineData(true, "session")]
+    [InlineData(false, null)]
+    public async Task ExecuteAsync_StoredResult_Request_Uses_The_Existing_Paging_Handler(
+        bool includeTotalCount,
+        string? sessionId)
+    {
+        var factory = Substitute.For<IScriptHandlerFactory>();
+        var handler = Substitute.For<IScriptHandler<PagedResult<T>>>();
+        var query = Substitute.For<IKustoQuery<IReadOnlyList<T>>>();
+        var sut = new KustoProcessor(factory, "connection", "database");
+        var pagination = includeTotalCount
+            ? new StoredResultPagination(sessionId, 50, "continuation", IncludeTotalCount: true)
+            : new StoredResultPagination(sessionId, 50, "continuation");
+        var expected = new PagedResult<T>([new T()], "next", includeTotalCount ? 100 : null);
+        using var cts = new CancellationTokenSource();
+        factory.Create(query, sessionId, 50, "continuation", "connection", "database", includeTotalCount)
+            .Returns(handler);
+        handler.ExecuteAsync(cts.Token).Returns(expected);
+
+        var result = await sut.ExecuteAsync(query, pagination, cts.Token);
+
+        result.Should().BeSameAs(expected);
+        _ = factory.Received(1).Create(query, sessionId, 50, "continuation", "connection", "database", includeTotalCount);
+        _ = handler.Received(1).ExecuteAsync(cts.Token);
+        _ = factory.DidNotReceiveWithAnyArgs().CreateKeyset<T>(default!, default!, default, default);
+    }
+
+    [Theory, AutoNSubstituteData]
     public async Task ExecuteAsync_Routes_Keyset_Pagination_With_Connection_Database_And_Cancellation(
         [Frozen] IScriptHandlerFactory factory,
         [Greedy] KustoProcessor sut,

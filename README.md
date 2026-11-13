@@ -203,7 +203,11 @@ When the `CancellationToken` passed to `IKustoProcessor` is canceled, the proces
 
 Exceptions are only translated when the token was canceled. A `KustoClientRequestCanceledByUserException` raised for other reasons, such as a `.cancel query` command, is passed through unchanged.
 
-The processor can also perform pagination by using the `ExecuteAsync` overload, taking in a session id, a continuation token and a max item count, like this:
+The processor offers `ExecuteAsync` overloads with `StoredResultPagination` for snapshot paging and `KeysetPagination` for live-data paging. Both return `PagedResult<T>`. The existing argument-based stored-result overloads remain available with unchanged behavior, forwarding paged execution to the request-based overload.
+
+#### Stored-result pagination
+
+Use `StoredResultPagination` to execute and store the complete matching result, then read pages from that snapshot:
 
 ```csharp
 app.MapGet(
@@ -216,9 +220,10 @@ app.MapGet(
     => processor
       .ExecuteAsync(
         new CustomerQuery("type"),
-        sessionId,
-        maxItemCount,
-        continuationToken,
+        new StoredResultPagination(
+          SessionId: sessionId,
+          MaxItemCount: maxItemCount ?? 100,
+          ContinuationToken: continuation),
         cancellationToken));
 ```
 
@@ -253,15 +258,16 @@ A continuation token can still be used after its stored result has expired, or a
 
 #### Total count
 
-To also get the total number of items across all pages, use the overload that takes an `includeTotalCount` flag:
+To also get the total number of items across all pages, set `IncludeTotalCount` on the stored-result request:
 
 ```csharp
 var result = await processor.ExecuteAsync(
   new CustomerQuery("type"),
-  sessionId,
-  maxItemCount,
-  continuationToken,
-  includeTotalCount: true,
+  new StoredResultPagination(
+    SessionId: sessionId,
+    MaxItemCount: 100,
+    ContinuationToken: continuationToken,
+    IncludeTotalCount: true),
   cancellationToken);
 
 long? total = result?.TotalCount;
@@ -289,7 +295,7 @@ var result = await processor.ExecuteAsync(
 
 The same query remains usable with ordinary execution and stored-result pagination. Keyset pages return `PagedResult<T>` with `TotalCount` always `null`; there is no total-count option. Pass back the continuation token unchanged with the same query, filters, ordering and execution scope. Invalid or mismatched tokens return `null` without executing the query. A null continuation token starts a new first page. Page sizes must be positive and smaller than `int.MaxValue`.
 
-Custom implementations of `IKustoProcessor` or `IScriptHandlerFactory` must implement the new keyset `ExecuteAsync` or `CreateKeyset` member respectively. Existing library-managed execution and stored-result overloads are unchanged.
+Custom implementations of `IKustoProcessor` must implement the new request-based pagination overloads. Custom implementations of `IScriptHandlerFactory` must implement `CreateKeyset`. Existing library-managed execution and argument-based stored-result overloads are unchanged.
 
 Define an immutable ordering using projected Kusto column names:
 
