@@ -155,7 +155,8 @@ public class ScriptHandlerFactoryTests
         queryProvider.ExecuteQueryAsync(default, default, default, default)
             .ReturnsForAnyArgs(_ => Task.FromResult<IDataReader>(table.CreateDataReader()));
         var clientProvider = Substitute.For<IKustoClientProvider>();
-        clientProvider.GetQueryClient("named", null).Returns(queryProvider);
+        clientProvider.GetQueryClientContext("named", null)
+            .Returns(new KustoQueryClientContext(queryProvider, "https://cluster.kusto.windows.net", "tenant"));
         var sut = new ScriptHandlerFactory(new QueryIdProvider(), clientProvider, monitor);
         var query = new KeysetQuery();
         var request = new KeysetPagination(KustoOrder<KeysetRow>.Ascending(r => r.SessionId), 1);
@@ -166,14 +167,36 @@ public class ScriptHandlerFactoryTests
         result.ContinuationToken.Should().NotBeNull();
         query.SeenOptions.Should().BeSameAs(options.SerializerOptions);
         monitor.Received(1).Get("named");
-        clientProvider.Received(1).GetQueryClient("named", null);
+        clientProvider.Received(1).GetQueryClientContext("named", null);
         clientProvider.DidNotReceiveWithAnyArgs().GetAdminClient(default, default);
 
         options.HostAddress = new Uri("https://other.kusto.windows.net/");
-        var otherHost = await sut.CreateKeyset(query, request with { ContinuationToken = result.ContinuationToken }, "named")
+        options.DatabaseName = "other";
+        queryProvider.DefaultDatabaseName.Returns("changed");
+        var nextTable = new DataTable();
+        nextTable.Columns.Add("session_id", typeof(string));
+        nextTable.Rows.Add("b");
+        queryProvider.ExecuteQueryAsync(default, default, default, default)
+            .ReturnsForAnyArgs(_ => Task.FromResult<IDataReader>(nextTable.CreateDataReader()));
+        var next = await sut.CreateKeyset(query, request with { ContinuationToken = result.ContinuationToken }, "named")
+            .ExecuteAsync(CancellationToken.None);
+
+        next!.Items.Single().SessionId.Should().Be("b");
+        _ = queryProvider.Received(2).ExecuteQueryAsync("tenant", Arg.Any<string>(),
+            Arg.Any<ClientRequestProperties>(), CancellationToken.None);
+
+        queryProvider.ExecuteQueryAsync(default, default, default, default)
+            .ReturnsForAnyArgs(_ => Task.FromResult<IDataReader>(table.CreateDataReader()));
+        var afterReload = await sut.CreateKeyset(query, request, "named").ExecuteAsync(CancellationToken.None);
+        afterReload!.ContinuationToken.Should().Be(result.ContinuationToken);
+
+        var otherProvider = Substitute.For<ICslQueryProvider>();
+        clientProvider.GetQueryClientContext("named", null)
+            .Returns(new KustoQueryClientContext(otherProvider, "https://other.kusto.windows.net", "tenant"));
+        var otherHost = await sut.CreateKeyset(query, request with { ContinuationToken = afterReload.ContinuationToken }, "named")
             .ExecuteAsync(CancellationToken.None);
         otherHost.Should().BeNull();
-        _ = queryProvider.ReceivedWithAnyArgs(1).ExecuteQueryAsync(default, default, default, default);
+        _ = otherProvider.DidNotReceiveWithAnyArgs().ExecuteQueryAsync(default, default, default, default);
     }
 
     [Theory, AutoNSubstituteData]

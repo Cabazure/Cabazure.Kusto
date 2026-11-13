@@ -129,6 +129,50 @@ public class KustoClientProviderTests
         client.DefaultDatabaseName.Should().Be(requestedDatabase);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void GetQueryClientContext_Preserves_The_Cached_Destination_After_Options_Change(
+        bool useConnectionString)
+    {
+        var monitor = Substitute.For<IOptionsMonitor<CabazureKustoOptions>>();
+        var options = CreateOptions(
+            connectionString: useConnectionString ? HostAddress : null,
+            databaseName: "original");
+        monitor.Get("named").Returns(options);
+        using var sut = CreateSut(monitor);
+
+        var first = sut.GetQueryClientContext("named");
+        options.HostAddress = useConnectionString ? null : new Uri("http://localhost:9090/");
+        options.ConnectionString = useConnectionString ? "http://localhost:9090/" : null;
+        options.DatabaseName = "changed";
+        var cached = sut.GetQueryClientContext("named");
+        using var freshProvider = CreateSut(monitor);
+        var fresh = freshProvider.GetQueryClientContext("named");
+
+        cached.Should().BeSameAs(first);
+        sut.GetQueryClient("named").Should().BeSameAs(first.Client);
+        new Uri(cached.DataSource).Port.Should().Be(8080);
+        cached.DatabaseName.Should().Be("original");
+        new Uri(fresh.DataSource).Port.Should().Be(9090);
+        fresh.DatabaseName.Should().Be("changed");
+        fresh.Client.Should().NotBeSameAs(cached.Client);
+    }
+
+    [Theory, AutoNSubstituteData]
+    public void GetQueryClientContext_Binds_The_Requested_Database(
+        [Frozen] IOptionsMonitor<CabazureKustoOptions> monitor,
+        string requestedDatabase)
+    {
+        monitor.Get(null).Returns(CreateOptions(databaseName: "configured"));
+        using var sut = CreateSut(monitor);
+
+        var context = sut.GetQueryClientContext(databaseName: requestedDatabase);
+
+        context.DatabaseName.Should().Be(requestedDatabase);
+        context.Client.DefaultDatabaseName.Should().Be(requestedDatabase);
+    }
+
     [Theory, AutoNSubstituteData]
     public void GetQueryClient_Throws_When_Connection_Is_Not_Configured(
         [Frozen] IOptionsMonitor<CabazureKustoOptions> monitor)

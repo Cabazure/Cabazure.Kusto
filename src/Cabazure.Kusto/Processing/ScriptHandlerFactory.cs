@@ -1,5 +1,4 @@
 using System.Text.Json;
-using Kusto.Data;
 using Microsoft.Extensions.Options;
 
 namespace Cabazure.Kusto.Processing;
@@ -49,30 +48,21 @@ public class ScriptHandlerFactory(
         string? databaseName = null)
     {
         var options = GetOptions(connectionName);
-        var client = clientProvider.GetQueryClient(connectionName, databaseName);
-        var connectionString = options switch
-        {
-            { HostAddress: { } host } => new KustoConnectionStringBuilder(host.AbsoluteUri),
-            { ConnectionString: { } text } => new KustoConnectionStringBuilder(text),
-            _ => null,
-        };
+        var context = clientProvider.GetQueryClientContext(connectionName, databaseName);
         var scope = JsonSerializer.Serialize(new[]
         {
             connectionName ?? Options.DefaultName,
-            connectionString?.DataSource,
+            context.DataSource,
         });
-        var effectiveDatabase = string.IsNullOrEmpty(client.DefaultDatabaseName)
-            ? databaseName ?? options.DatabaseName ?? connectionString?.InitialCatalog
-            : client.DefaultDatabaseName;
 
         return new KeysetQueryHandler<T>(
             queryIdProvider,
-            client,
+            context.Client,
             query,
             pagination,
             options.SerializerOptions,
             scope,
-            effectiveDatabase);
+            context.DatabaseName);
     }
 
     public IScriptHandler<PagedResult<T>> Create<T>(

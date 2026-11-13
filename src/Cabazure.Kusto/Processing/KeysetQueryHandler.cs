@@ -42,7 +42,7 @@ internal sealed class KeysetQueryHandler<T>(
             continuation?.Values);
 
         using var reader = await queryProvider.ExecuteQueryAsync(
-            databaseName: null,
+            databaseName,
             request.Text,
             request.Properties,
             cancellationToken);

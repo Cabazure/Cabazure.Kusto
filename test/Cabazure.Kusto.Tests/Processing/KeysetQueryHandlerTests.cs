@@ -109,7 +109,7 @@ public class KeysetQueryHandlerTests
 
         script.TextReads.Should().Be(1);
         script.ParameterReads.Should().Be(1);
-        _ = provider.Received(1).ExecuteQueryAsync(Arg.Is<string?>(database => database == null),
+        _ = provider.Received(1).ExecuteQueryAsync(Arg.Is<string?>(database => database == "tenant"),
             Arg.Is<string>(text => text.StartsWith(ChangingQuery.FirstText)),
             Arg.Is<ClientRequestProperties>(properties => properties.Parameters["filter"] == "\"first\""),
             CancellationToken.None);
@@ -140,7 +140,7 @@ public class KeysetQueryHandlerTests
         second.ContinuationToken.Should().BeNull();
         second.TotalCount.Should().BeNull();
         query.SeenOptions.Should().BeSameAs(options.SerializerOptions);
-        _ = provider.Received(1).ExecuteQueryAsync(Arg.Is<string?>(database => database == null),
+        _ = provider.Received(1).ExecuteQueryAsync(Arg.Is<string?>(database => database == "tenant"),
             Arg.Is<string>(text => text.Contains("strcmp") && text.EndsWith("| take 3")),
             Arg.Is<ClientRequestProperties>(p => p.Parameters["cabazureKeysetAfter1"] == "\"b\""
                 && p.Parameters["filter"] == "\"test\""),

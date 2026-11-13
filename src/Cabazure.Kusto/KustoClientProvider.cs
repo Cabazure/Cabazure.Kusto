@@ -9,10 +9,15 @@ public class KustoClientProvider(
     : IDisposable, IKustoClientProvider
 {
     private record ClientKey(string? ConnectionName, string? DatabaseName);
-    private readonly ConcurrentDictionary<ClientKey, ICslQueryProvider> queryClients = new();
+    private readonly ConcurrentDictionary<ClientKey, KustoQueryClientContext> queryClients = new();
     private readonly ConcurrentDictionary<ClientKey, ICslAdminProvider> adminClients = new();
 
     public ICslQueryProvider GetQueryClient(
+        string? connectionName = null,
+        string? databaseName = null)
+        => GetQueryClientContext(connectionName, databaseName).Client;
+
+    public KustoQueryClientContext GetQueryClientContext(
         string? connectionName = null,
         string? databaseName = null)
         => queryClients.GetOrAdd(
@@ -26,11 +31,16 @@ public class KustoClientProvider(
             new(connectionName, databaseName),
             CreateAdminClient);
 
-    private ICslQueryProvider CreateQueryClient(ClientKey clientKey)
-        => KustoClientFactory.CreateCslQueryProvider(
-            connectionStringProvider.GetConnectionString(
-                clientKey.ConnectionName,
-                clientKey.DatabaseName));
+    private KustoQueryClientContext CreateQueryClient(ClientKey clientKey)
+    {
+        var connection = connectionStringProvider.GetConnectionString(
+            clientKey.ConnectionName,
+            clientKey.DatabaseName);
+        return new(
+            KustoClientFactory.CreateCslQueryProvider(connection),
+            connection.DataSource,
+            connection.InitialCatalog);
+    }
 
     private ICslAdminProvider CreateAdminClient(ClientKey clientKey)
         => KustoClientFactory.CreateCslAdminProvider(
@@ -48,7 +58,7 @@ public class KustoClientProvider(
 
         foreach (var queryClient in queryClients.Values)
         {
-            queryClient.Dispose();
+            queryClient.Client.Dispose();
         }
     }
 }
