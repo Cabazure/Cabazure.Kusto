@@ -271,6 +271,30 @@ The total count is opt-in. When you don't request it, `TotalCount` is `null` and
 
 When you request it, the total is fetched once on the first page by running `.show stored_query_results`. This call reads the stored result's metadata and doesn't rerun your query. It is skipped when the first page isn't full, because the item count is then the total. The total is included in the continuation token, so later pages need no extra calls. Paging also stops as soon as the total is reached.
 
+#### Ordering definitions for keyset pagination
+
+The ordering API is the first building block of keyset pagination. Execution support will follow separately; existing pagination still uses stored query results.
+
+Define an immutable ordering using projected Kusto column names:
+
+```csharp
+var order = KustoOrder
+  .Descending("startedAt")
+  .ThenAscending("sessionId");
+```
+
+The typed helper builds the same definition using direct result-property selectors:
+
+```csharp
+var order = KustoOrder<ChargingSession>
+  .Descending(s => s.StartedAt)
+  .ThenAscending(s => s.SessionId);
+```
+
+Typed column names are resolved using the executing connection's JSON naming policy and `[JsonPropertyName]` attributes. Supply `columnName: "sessionStartedAt"` when the projected Kusto column needs an explicit name. Column-string definitions are used unchanged.
+
+Selectors must select a readable property directly; nested properties, fields, method calls and computed expressions are not translated into KQL. Include enough keys to identify each result row uniquely, such as a session ID after its start time. Repeating a resolved column is rejected.
+
 ### Streaming queries
 
 When you want to process large result sets row-by-row without materializing the full result into memory first, derive your query from `StreamKustoQuery<T>` and execute it with `ExecuteAsync()`.
