@@ -203,7 +203,7 @@ When the `CancellationToken` passed to `IKustoProcessor` is canceled, the proces
 
 Exceptions are only translated when the token was canceled. A `KustoClientRequestCanceledByUserException` raised for other reasons, such as a `.cancel query` command, is passed through unchanged.
 
-The processor offers `ExecuteAsync` overloads with `StoredResultPagination` for snapshot paging and `KeysetPagination` for live-data paging. Both return `PagedResult<T>`. The existing argument-based stored-result overloads remain available with unchanged behavior, forwarding paged execution to the request-based overload.
+The processor offers `ExecuteAsync` overloads with `StoredResultPagination` for snapshot paging and `KeysetPagination` for live-data paging. Both return `PagedResult<T>`. The two argument-based stored-result overloads are obsolete with a compiler warning; use `StoredResultPagination` instead. They remain available with unchanged behavior, forwarding paged execution to the request-based overload. For unpaged execution (previously a null `maxItemCount`), use the ordinary query overload.
 
 #### Stored-result pagination
 

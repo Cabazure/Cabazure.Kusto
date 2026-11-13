@@ -20,6 +20,7 @@ public interface IKustoProcessor
         KeysetPagination pagination,
         CancellationToken cancellationToken);
 
+    [Obsolete("Use the ExecuteAsync overload accepting StoredResultPagination instead.", error: false)]
     Task<PagedResult<T>?> ExecuteAsync<T>(
         IKustoQuery<IReadOnlyList<T>> query,
         string? sessionId,
@@ -27,6 +28,7 @@ public interface IKustoProcessor
         string? continuationToken,
         CancellationToken cancellationToken);
 
+    [Obsolete("Use the ExecuteAsync overload accepting StoredResultPagination instead.", error: false)]
     Task<PagedResult<T>?> ExecuteAsync<T>(
         IKustoQuery<IReadOnlyList<T>> query,
         string? sessionId,

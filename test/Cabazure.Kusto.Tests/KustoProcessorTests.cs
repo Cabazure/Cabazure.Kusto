@@ -91,12 +91,14 @@ public class KustoProcessorTests
         string continuationToken,
         CancellationToken cancellationToken)
     {
+#pragma warning disable CS0618 // Exercise the legacy overload for backward compatibility.
         await sut.ExecuteAsync(
             query,
             sessionId,
             maxItemCount,
             continuationToken,
             cancellationToken);
+#pragma warning restore CS0618
 
         _ = factory
             .Received(1)
@@ -119,6 +121,7 @@ public class KustoProcessorTests
         string continuationToken,
         CancellationToken cancellationToken)
     {
+#pragma warning disable CS0618 // Exercise the legacy overload for backward compatibility.
         await sut.ExecuteAsync(
             query,
             sessionId,
@@ -126,6 +129,7 @@ public class KustoProcessorTests
             continuationToken,
             includeTotalCount: true,
             cancellationToken);
+#pragma warning restore CS0618
 
         _ = factory
             .Received(1)
@@ -155,6 +159,7 @@ public class KustoProcessorTests
             .ExecuteAsync(cancellationToken)
             .Returns(queryResult);
 
+#pragma warning disable CS0618 // Exercise the legacy overload for backward compatibility.
         var result = await sut.ExecuteAsync(
             query,
             sessionId: null,
@@ -162,6 +167,7 @@ public class KustoProcessorTests
             continuationToken: null,
             includeTotalCount: true,
             cancellationToken);
+#pragma warning restore CS0618
 
         result!.Items
             .Should()
@@ -194,12 +200,14 @@ public class KustoProcessorTests
             .ExecuteAsync(cancellationToken)
             .Returns(queryResult);
 
+#pragma warning disable CS0618 // Exercise the legacy overload for backward compatibility.
         var result = await sut.ExecuteAsync(
             query,
             sessionId,
             maxItemCount,
             continuationToken,
             cancellationToken);
+#pragma warning restore CS0618
 
         result
             .Should()
@@ -310,12 +318,14 @@ public class KustoProcessorTests
             .ExecuteAsync(cts.Token)
             .ThrowsAsync(kustoException);
 
+#pragma warning disable CS0618 // Exercise the legacy overload for backward compatibility.
         var act = () => sut.ExecuteAsync(
             query,
             sessionId,
             maxItemCount,
             continuationToken,
             cts.Token);
+#pragma warning restore CS0618
 
         await ShouldBeTranslated(act, kustoException, cts.Token);
     }

@@ -97,6 +97,7 @@ public class KustoProcessor(
         }
     }
 
+    [Obsolete("Use the ExecuteAsync overload accepting StoredResultPagination instead.", error: false)]
     public Task<PagedResult<T>?> ExecuteAsync<T>(
         IKustoQuery<IReadOnlyList<T>> query,
         string? sessionId,
@@ -111,6 +112,7 @@ public class KustoProcessor(
             includeTotalCount: false,
             cancellationToken);
 
+    [Obsolete("Use the ExecuteAsync overload accepting StoredResultPagination instead.", error: false)]
     public async Task<PagedResult<T>?> ExecuteAsync<T>(
         IKustoQuery<IReadOnlyList<T>> query,
         string? sessionId,
