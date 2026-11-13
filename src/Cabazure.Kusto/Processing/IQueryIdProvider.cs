@@ -9,4 +9,9 @@ public interface IQueryIdProvider
 
     string CreateFingerprint(
         IKustoScript query);
+
+    string CreateFingerprint(
+        Type queryType,
+        string queryText,
+        IEnumerable<KeyValuePair<string, string>> parameters);
 }
