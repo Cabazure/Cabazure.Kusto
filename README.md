@@ -273,7 +273,7 @@ When you request it, the total is fetched once on the first page by running `.sh
 
 #### Ordering definitions for keyset pagination
 
-The ordering API is the first building block of keyset pagination. Execution support will follow separately; existing pagination still uses stored query results.
+The ordering API, cursor codec and query generation are building blocks of keyset pagination. Execution support will follow separately; existing pagination still uses stored query results.
 
 Define an immutable ordering using projected Kusto column names:
 
@@ -294,6 +294,10 @@ var order = KustoOrder<ChargingSession>
 Typed column names are resolved using the executing connection's JSON naming policy and `[JsonPropertyName]` attributes. Supply `columnName: "sessionStartedAt"` when the projected Kusto column needs an explicit name. Column-string definitions are used unchanged.
 
 Selectors must select a readable property directly; nested properties, fields, method calls and computed expressions are not translated into KQL. Include enough keys to identify each result row uniquely, such as a session ID after its start time. Repeating a resolved column is rejected.
+
+Keyset query generation appends a lexicographic seek predicate, an explicit ordering with nulls last in either direction, and a limit of page size plus one. It requires a script with one final tabular result that projects every ordering column. It does not create stored results or calculate a total count.
+
+Cursors preserve raw scalar values, including datetime ticks and ADX decimal precision. Supported key types are string, bool, int, long, finite real, decimal, datetime and timespan, including nulls. GUID and dynamic keys are not supported. Cursor parameters are bound separately from the query text, and projected column names are quoted. Continuation tokens are versioned, limited to 64 KiB and bound to the query fingerprint, resolved ordering, connection scope and database. Tokens are opaque cursors, not signed credentials or snapshots; authorization and data-scoping filters must still be enforced on every request.
 
 ### Streaming queries
 
