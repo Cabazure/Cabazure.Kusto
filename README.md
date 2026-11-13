@@ -295,7 +295,7 @@ var result = await processor.ExecuteAsync(
 
 The same query remains usable with ordinary execution and stored-result pagination. Keyset pages return `PagedResult<T>` with `TotalCount` always `null`; there is no total-count option. Pass back the continuation token unchanged with the same query, filters, ordering and execution scope. Invalid or mismatched tokens return `null` without executing the query. A null continuation token starts a new first page. Page sizes must be positive and smaller than `int.MaxValue`.
 
-Custom implementations of `IKustoProcessor` must implement the new request-based pagination overloads. Custom implementations of `IScriptHandlerFactory` must implement `CreateKeyset`. Existing library-managed execution and argument-based stored-result overloads are unchanged.
+Custom implementations of `IKustoProcessor` must implement the new request-based pagination overloads. Custom implementations of `IScriptHandlerFactory` must implement `CreateKeyset`. Custom `IQueryIdProvider` implementations must implement the fingerprint overload accepting the original query type, query text and serialized parameters. Keyset execution captures those inputs once and reuses them for cursor binding and query generation. Existing library-managed execution and argument-based stored-result behavior is unchanged.
 
 Define an immutable ordering using projected Kusto column names:
 

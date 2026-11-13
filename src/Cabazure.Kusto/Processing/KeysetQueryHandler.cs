@@ -17,9 +17,11 @@ internal sealed class KeysetQueryHandler<T>(
     {
         cancellationToken.ThrowIfCancellationRequested();
 
+        var queryText = query.GetQueryText();
+        var parameters = query.GetCslParameters().ToDictionary(p => p.Key, p => p.Value);
         var columns = pagination.Order.ResolveColumns(serializerOptions);
         var fingerprint = KeysetContinuationToken.CreateFingerprint(
-            queryIdProvider.CreateFingerprint(query),
+            queryIdProvider.CreateFingerprint(query.GetType(), queryText, parameters),
             columns,
             connectionScope,
             databaseName);
@@ -33,7 +35,8 @@ internal sealed class KeysetQueryHandler<T>(
         }
 
         var request = KeysetQueryBuilder.Create(
-            query,
+            queryText,
+            parameters,
             columns,
             pagination.MaxItemCount,
             continuation?.Values);

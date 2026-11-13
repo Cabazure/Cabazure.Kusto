@@ -41,6 +41,17 @@ public class KeysetQueryHandlerTests
         public override string GetQueryText() => "Events";
     }
 
+    private sealed record ChangingQuery : KustoQuery<Row>
+    {
+        public const string FirstText = "declare query_parameters (filter:string);\nEvents | where category == filter";
+        public int TextReads;
+        public int ParameterReads;
+
+        public string Filter => ++ParameterReads == 1 ? "first" : "second";
+
+        public override string GetQueryText() => ++TextReads == 1 ? FirstText : "OtherEvents";
+    }
+
     private static readonly DateTimeOffset Timestamp = new DateTimeOffset(2026, 11, 13, 10, 0, 0, TimeSpan.Zero).AddTicks(1);
     private readonly ICslQueryProvider provider = Substitute.For<ICslQueryProvider>();
     private readonly CabazureKustoOptions options = new();
@@ -84,6 +95,29 @@ public class KeysetQueryHandlerTests
         var fingerprint = KeysetContinuationToken.CreateFingerprint(
             new QueryIdProvider().CreateFingerprint(query), columns, "connection", "tenant");
         return KeysetContinuationToken.Parse(result.ContinuationToken, fingerprint, columns.Length)!;
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_Binds_The_Cursor_To_Inputs_Captured_Once_From_The_Original_Query_Type()
+    {
+        ReturnTables(CreateTable("a", "b", "c"));
+        var script = new ChangingQuery();
+        var sut = new KeysetQueryHandler<Row>(new QueryIdProvider(), provider, script, pagination,
+            options.SerializerOptions, "connection", "tenant");
+
+        var result = await sut.ExecuteAsync(CancellationToken.None);
+
+        script.TextReads.Should().Be(1);
+        script.ParameterReads.Should().Be(1);
+        _ = provider.Received(1).ExecuteQueryAsync(Arg.Is<string?>(database => database == null),
+            Arg.Is<string>(text => text.StartsWith(ChangingQuery.FirstText)),
+            Arg.Is<ClientRequestProperties>(properties => properties.Parameters["filter"] == "\"first\""),
+            CancellationToken.None);
+        var fingerprint = KeysetContinuationToken.CreateFingerprint(
+            new QueryIdProvider().CreateFingerprint(typeof(ChangingQuery), ChangingQuery.FirstText,
+                new Dictionary<string, string> { ["filter"] = "\"first\"" }),
+            pagination.Order.ResolveColumns(options.SerializerOptions), "connection", "tenant");
+        KeysetContinuationToken.Parse(result!.ContinuationToken, fingerprint, 2).Should().NotBeNull();
     }
 
     [Fact]

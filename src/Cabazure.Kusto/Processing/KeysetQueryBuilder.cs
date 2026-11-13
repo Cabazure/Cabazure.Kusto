@@ -11,12 +11,24 @@ internal static class KeysetQueryBuilder
         IReadOnlyList<KustoOrder.Column> columns,
         int maxItemCount,
         IReadOnlyList<KeysetCursorValue>? after = null)
+        => Create(query.GetQueryText(), query.GetCslParameters().ToDictionary(p => p.Key, p => p.Value),
+            columns, maxItemCount, after);
+
+    public static Query Create(
+        string queryText,
+        IReadOnlyDictionary<string, string> parameters,
+        IReadOnlyList<KustoOrder.Column> columns,
+        int maxItemCount,
+        IReadOnlyList<KeysetCursorValue>? after = null)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxItemCount);
         ArgumentOutOfRangeException.ThrowIfEqual(maxItemCount, int.MaxValue);
 
-        var text = query.GetQueryText().TrimEnd(' ', '\r', '\n', '\t', ';');
-        var properties = query.GetRequestProperties();
+        var text = queryText.TrimEnd(' ', '\r', '\n', '\t', ';');
+        var properties = new ClientRequestProperties(null, parameters)
+        {
+            ClientRequestId = Guid.NewGuid().ToString(),
+        };
         var builder = new StringBuilder();
         var names = columns
             .Select(c => $"[{KustoScriptExtensions.GetCslValue(c.Name)}]")
