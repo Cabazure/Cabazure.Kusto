@@ -17,6 +17,12 @@ public interface IScriptHandlerFactory
         string? connectionName = null,
         string? databaseName = null);
 
+    IScriptHandler<PagedResult<T>> CreateKeyset<T>(
+        IKustoQuery<IReadOnlyList<T>> query,
+        KeysetPagination pagination,
+        string? connectionName = null,
+        string? databaseName = null);
+
     IScriptHandler<PagedResult<T>> Create<T>(
         IKustoQuery<IReadOnlyList<T>> query,
         string? sessionId,

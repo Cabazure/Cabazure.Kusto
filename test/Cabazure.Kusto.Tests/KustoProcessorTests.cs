@@ -513,6 +513,42 @@ public class KustoProcessorTests
             .Which.Should().BeSameAs(canceledException);
     }
 
+    [Theory, AutoNSubstituteData]
+    public async Task ExecuteAsync_Routes_Keyset_Pagination_With_Connection_Database_And_Cancellation(
+        [Frozen] IScriptHandlerFactory factory,
+        [Greedy] KustoProcessor sut,
+        IKustoQuery<IReadOnlyList<T>> query,
+        IScriptHandler<PagedResult<T>> handler,
+        PagedResult<T> expected,
+        CancellationToken cancellationToken)
+    {
+        var pagination = new KeysetPagination(KustoOrder.Ascending("id"), 50);
+        factory.CreateKeyset(query, pagination, sut.ConnectionName, sut.DatabaseName).Returns(handler);
+        handler.ExecuteAsync(cancellationToken).Returns(expected);
+
+        var result = await sut.ExecuteAsync(query, pagination, cancellationToken);
+
+        result.Should().BeSameAs(expected);
+        _ = factory.Received(1).CreateKeyset(query, pagination, sut.ConnectionName, sut.DatabaseName);
+        _ = handler.Received(1).ExecuteAsync(cancellationToken);
+    }
+
+    [Theory, AutoNSubstituteData]
+    public async Task ExecuteAsync_Translates_Keyset_Cancellation_Exceptions(
+        [Frozen] IScriptHandlerFactory factory,
+        [Modest] KustoProcessor sut,
+        IKustoQuery<IReadOnlyList<T>> query,
+        IScriptHandler<PagedResult<T>> handler)
+    {
+        using var cts = CreateCanceledTokenSource();
+        var exception = new KustoClientRequestCanceledByUserException();
+        var pagination = new KeysetPagination(KustoOrder.Ascending("id"), 50);
+        factory.CreateKeyset(query, pagination, sut.ConnectionName, sut.DatabaseName).Returns(handler);
+        handler.ExecuteAsync(cts.Token).ThrowsAsync(exception);
+
+        await ShouldBeTranslated(() => sut.ExecuteAsync(query, pagination, cts.Token), exception, cts.Token);
+    }
+
     private static CancellationTokenSource CreateCanceledTokenSource()
     {
         var cts = new CancellationTokenSource();

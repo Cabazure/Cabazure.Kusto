@@ -271,9 +271,25 @@ The total count is opt-in. When you don't request it, `TotalCount` is `null` and
 
 When you request it, the total is fetched once on the first page by running `.show stored_query_results`. This call reads the stored result's metadata and doesn't rerun your query. It is skipped when the first page isn't full, because the item count is then the total. The total is included in the continuation token, so later pages need no extra calls. Paging also stops as soon as the total is reached.
 
-#### Ordering definitions for keyset pagination
+#### Keyset pagination
 
-The ordering API, cursor codec and query generation are building blocks of keyset pagination. Execution support will follow separately; existing pagination still uses stored query results.
+Use the `ExecuteAsync` overload with `KeysetPagination` to page through live query results without creating stored query results:
+
+```csharp
+var result = await processor.ExecuteAsync(
+  query,
+  new KeysetPagination(
+    Order: KustoOrder<ChargingSession>
+      .Descending(s => s.StartedAt)
+      .ThenAscending(s => s.SessionId),
+    MaxItemCount: 50,
+    ContinuationToken: continuationToken),
+  cancellationToken);
+```
+
+The same query remains usable with ordinary execution and stored-result pagination. Keyset pages return `PagedResult<T>` with `TotalCount` always `null`; there is no total-count option. Pass back the continuation token unchanged with the same query, filters, ordering and execution scope. Invalid or mismatched tokens return `null` without executing the query. A null continuation token starts a new first page. Page sizes must be positive and smaller than `int.MaxValue`.
+
+Custom implementations of `IKustoProcessor` or `IScriptHandlerFactory` must implement the new keyset `ExecuteAsync` or `CreateKeyset` member respectively. Existing library-managed execution and stored-result overloads are unchanged.
 
 Define an immutable ordering using projected Kusto column names:
 
@@ -293,9 +309,15 @@ var order = KustoOrder<ChargingSession>
 
 Typed column names are resolved using the executing connection's JSON naming policy and `[JsonPropertyName]` attributes. Supply `columnName: "sessionStartedAt"` when the projected Kusto column needs an explicit name. Column-string definitions are used unchanged.
 
+Column names must match the actual Kusto projection, including casing. The sample disables the naming policy (`PropertyNamingPolicy = null`) to preserve CLR property names, so its typed ordering matches the original `CustomerKey` projection without an override.
+
 Selectors must select a readable property directly; nested properties, fields, method calls and computed expressions are not translated into KQL. Include enough keys to identify each result row uniquely, such as a session ID after its start time. Repeating a resolved column is rejected.
 
 Keyset query generation appends a lexicographic seek predicate, an explicit ordering with nulls last in either direction, and a limit of page size plus one. It requires a script with one final tabular result that projects every ordering column. It does not create stored results or calculate a total count.
+
+Result mapping uses the query's existing `ReadResult` method and the executing connection's serializer options. Custom mapping must consume the page and preserve one item per row in the original order. The look-ahead row is not passed to mapping. Cursor values come from the last returned raw row, not from mapped DTOs, so nullable-string normalization and decimal rounding do not change pagination boundaries.
+
+Each page reruns the query against live data. Inserts, deletions or changes to ordering keys can change what subsequent pages contain. Unlike stored-result pagination, keyset paging does not provide a reusable snapshot. Expensive joins still run on every page unless the query itself is optimized.
 
 Cursors preserve raw scalar values, including datetime ticks and ADX decimal precision. Supported key types are string, bool, int, long, finite real, decimal, datetime and timespan, including nulls. GUID and dynamic keys are not supported. Cursor parameters are bound separately from the query text, and projected column names are quoted. Continuation tokens are versioned, limited to 64 KiB and bound to the query fingerprint, resolved ordering, connection scope and database. Tokens are opaque cursors, not signed credentials or snapshots; authorization and data-scoping filters must still be enforced on every request.
 

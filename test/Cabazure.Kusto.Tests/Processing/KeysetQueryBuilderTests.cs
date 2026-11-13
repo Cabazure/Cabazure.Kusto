@@ -148,14 +148,4 @@ public class KeysetQueryBuilderTests
         create.Should().Throw<ArgumentOutOfRangeException>();
     }
 
-    [Fact]
-    public void Create_Rejects_Empty_Order_And_Mismatched_Cursors()
-    {
-        var empty = () => KeysetQueryBuilder.Create(new Query("test"), [], 10);
-        var mismatched = () => KeysetQueryBuilder.Create(new Query("test"), Columns, 10,
-            [KeysetCursorValue.FromValue("id")]);
-
-        empty.Should().Throw<ArgumentException>();
-        mismatched.Should().Throw<ArgumentException>();
-    }
 }

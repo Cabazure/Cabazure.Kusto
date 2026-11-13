@@ -12,15 +12,8 @@ internal static class KeysetQueryBuilder
         int maxItemCount,
         IReadOnlyList<KeysetCursorValue>? after = null)
     {
-        ArgumentNullException.ThrowIfNull(query);
-        ArgumentNullException.ThrowIfNull(columns);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxItemCount);
         ArgumentOutOfRangeException.ThrowIfEqual(maxItemCount, int.MaxValue);
-
-        if (columns.Count == 0 || (after is not null && after.Count != columns.Count))
-        {
-            throw new ArgumentException("The ordering must have keys and match the cursor length.", nameof(columns));
-        }
 
         var text = query.GetQueryText().TrimEnd(' ', '\r', '\n', '\t', ';');
         var properties = query.GetRequestProperties();

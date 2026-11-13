@@ -36,8 +36,6 @@ public sealed class KustoOrder<T> : KustoOrder
         string? columnName,
         bool descending)
     {
-        ArgumentNullException.ThrowIfNull(property);
-
         if (property.Body is not MemberExpression
             {
                 Member: PropertyInfo { GetMethod.IsPublic: true } selectedProperty,

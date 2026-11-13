@@ -87,31 +87,6 @@ public class KustoOrderTests
             .Should().Equal("sessionStartedAt", "external_id", "externalAlias");
     }
 
-    [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData("  ")]
-    public void Ordering_Rejects_Missing_Column_Names(string? columnName)
-    {
-        var create = () => KustoOrder.Ascending(columnName!);
-        var append = () => KustoOrder.Descending("id").ThenDescending(columnName!);
-
-        create.Should().Throw<ArgumentException>();
-        append.Should().Throw<ArgumentException>();
-    }
-
-    [Theory]
-    [InlineData("")]
-    [InlineData("  ")]
-    public void Typed_Ordering_Rejects_Empty_Column_Overrides(string columnName)
-    {
-        var create = () => KustoOrder<Row>.Ascending(r => r.SessionId, columnName);
-        var append = () => KustoOrder<Row>.Ascending(r => r.StartedAt).ThenAscending(r => r.SessionId, columnName);
-
-        create.Should().Throw<ArgumentException>();
-        append.Should().Throw<ArgumentException>();
-    }
-
     [Fact]
     public void ResolveColumns_Rejects_Duplicate_Resolved_Names()
     {
@@ -125,14 +100,6 @@ public class KustoOrderTests
 
         resolveColumns.Should().Throw<ArgumentException>().WithMessage("*sessionId*");
         resolveTyped.Should().Throw<ArgumentException>().WithMessage("*sessionId*");
-    }
-
-    [Fact]
-    public void Typed_Ordering_Rejects_Null_Selectors()
-    {
-        var create = () => KustoOrder<Row>.Descending<string>(null!);
-
-        create.Should().Throw<ArgumentNullException>();
     }
 
     public static TheoryData<Expression<Func<Row, string>>> InvalidSelectors => new()

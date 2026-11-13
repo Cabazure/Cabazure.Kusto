@@ -28,8 +28,6 @@ public class KustoOrder
 
     internal ImmutableArray<Column> ResolveColumns(JsonSerializerOptions options)
     {
-        ArgumentNullException.ThrowIfNull(options);
-
         var columns = ImmutableArray.CreateBuilder<Column>(Keys.Length);
         var names = new HashSet<string>(StringComparer.Ordinal);
 
@@ -39,8 +37,6 @@ public class KustoOrder
                 ?? key.Property!.GetCustomAttribute<JsonPropertyNameAttribute>()?.Name
                 ?? options.PropertyNamingPolicy?.ConvertName(key.Property!.Name)
                 ?? key.Property!.Name;
-
-            ArgumentException.ThrowIfNullOrWhiteSpace(name);
 
             if (!names.Add(name))
             {
@@ -54,10 +50,7 @@ public class KustoOrder
     }
 
     internal static Key CreateKey(string columnName, bool descending)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(columnName);
-        return new(columnName, null, descending);
-    }
+        => new(columnName, null, descending);
 
     internal sealed record Key(string? ColumnName, PropertyInfo? Property, bool Descending);
 

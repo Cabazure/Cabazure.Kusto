@@ -12,6 +12,11 @@ public interface IKustoProcessor
 
     Task<PagedResult<T>?> ExecuteAsync<T>(
         IKustoQuery<IReadOnlyList<T>> query,
+        KeysetPagination pagination,
+        CancellationToken cancellationToken);
+
+    Task<PagedResult<T>?> ExecuteAsync<T>(
+        IKustoQuery<IReadOnlyList<T>> query,
         string? sessionId,
         int? maxItemCount,
         string? continuationToken,

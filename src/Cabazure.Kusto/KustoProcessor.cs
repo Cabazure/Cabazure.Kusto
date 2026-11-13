@@ -52,6 +52,27 @@ public class KustoProcessor(
         }
     }
 
+    public async Task<PagedResult<T>?> ExecuteAsync<T>(
+        IKustoQuery<IReadOnlyList<T>> query,
+        KeysetPagination pagination,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await factory
+                .CreateKeyset(
+                    query,
+                    pagination,
+                    ConnectionName,
+                    DatabaseName)
+                .ExecuteAsync(cancellationToken);
+        }
+        catch (Exception ex) when (ex.IsCanceledBy(cancellationToken))
+        {
+            throw ex.ToOperationCanceled(cancellationToken);
+        }
+    }
+
     public Task<PagedResult<T>?> ExecuteAsync<T>(
         IKustoQuery<IReadOnlyList<T>> query,
         string? sessionId,
