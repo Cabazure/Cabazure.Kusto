@@ -31,6 +31,11 @@ public sealed class KustoOrder<T> : KustoOrder
         string? columnName = null)
         => new(Keys.Add(CreateKey(property, columnName, descending: true)));
 
+    public override KustoOrder<T> Reverse(bool reverse = true)
+        => reverse
+            ? new([.. Keys.Select(key => key with { Descending = !key.Descending })])
+            : this;
+
     private static Key CreateKey<TKey>(
         Expression<Func<T, TKey>> property,
         string? columnName,
