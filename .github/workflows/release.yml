@@ -47,7 +47,7 @@ jobs:
         run: dotnet restore
 
       - name: 🛠️ Build solution
-        run: dotnet build --no-restore -c:Release -p:SourceRevisionId=${VERSION} -p:Version=${VERSION}
+        run: dotnet build --no-restore -c:Release -p:SourceRevisionId=${{ github.sha }} -p:Version=${VERSION}
 
       - name: 🧪 Run tests
         run: dotnet test --no-build -c:Release --results-directory TestResults --report-trx --report-trx-filename test-results.trx --coverage --coverage-output-format cobertura --coverage-output coverage.cobertura.xml || true
@@ -95,4 +95,4 @@ jobs:
           path: CoverageHistory
 
       - name: 📦 Push packages to NuGet
-        run: dotnet nuget push **/Cabazure.*.nupkg -s https://api.nuget.org/v3/index.json -k ${{ secrets.NUGET_KEY }} --skip-duplicate --no-symbols
+        run: dotnet nuget push **/Cabazure.*.nupkg -s https://api.nuget.org/v3/index.json -k ${{ secrets.NUGET_KEY }} --skip-duplicate
