@@ -2,6 +2,6 @@ namespace Cabazure.Kusto;
 
 public sealed record StoredResultPagination(
     string? SessionId,
-    int MaxItemCount,
+    int? MaxItemCount,
     string? ContinuationToken = null,
     bool IncludeTotalCount = false);

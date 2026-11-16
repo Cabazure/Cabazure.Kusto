@@ -98,6 +98,48 @@ public class KeysetQueryHandlerTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_Returns_All_Rows_With_Ordering_And_No_Cursor_When_Page_Size_Is_Null()
+    {
+        using var reader = CreateTable("a", "b", "c", "d").CreateDataReader();
+        provider.ExecuteQueryAsync(default, default, default, default).ReturnsForAnyArgs(reader);
+        using var cts = new CancellationTokenSource();
+
+        var result = await CreateHandler(pagination with { MaxItemCount = null }).ExecuteAsync(cts.Token);
+
+        result!.Items.Select(r => r.SessionId).Should().Equal("a", "b", "c", "d");
+        result.ContinuationToken.Should().BeNull();
+        result.TotalCount.Should().BeNull();
+        query.SeenOptions.Should().BeSameAs(options.SerializerOptions);
+        reader.IsClosed.Should().BeTrue();
+        _ = provider.Received(1).ExecuteQueryAsync(Arg.Is<string?>(database => database == "tenant"),
+            Arg.Is<string>(text => text.EndsWith(
+                "| order by [\"startedAt\"] desc nulls last, [\"sessionId\"] asc nulls last")
+                && !text.Contains("| take ")),
+            Arg.Any<ClientRequestProperties>(), cts.Token);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ExecuteAsync_Rejects_A_Continuation_With_Null_Page_Size_Without_Querying(bool validToken)
+    {
+        var token = "invalid";
+        if (validToken)
+        {
+            ReturnTables(CreateTable("a", "b", "c"));
+            var first = await CreateHandler().ExecuteAsync(CancellationToken.None);
+            token = first!.ContinuationToken!;
+            provider.ClearReceivedCalls();
+        }
+
+        var result = await CreateHandler(pagination with { MaxItemCount = null, ContinuationToken = token })
+            .ExecuteAsync(CancellationToken.None);
+
+        result.Should().BeNull();
+        _ = provider.DidNotReceiveWithAnyArgs().ExecuteQueryAsync(default, default, default, default);
+    }
+
+    [Fact]
     public async Task ExecuteAsync_Binds_The_Cursor_To_Inputs_Captured_Once_From_The_Original_Query_Type()
     {
         ReturnTables(CreateTable("a", "b", "c"));
