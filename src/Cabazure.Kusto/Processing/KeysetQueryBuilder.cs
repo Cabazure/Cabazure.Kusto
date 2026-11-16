@@ -9,7 +9,7 @@ internal static class KeysetQueryBuilder
     public static Query Create(
         IKustoScript query,
         IReadOnlyList<KustoOrder.Column> columns,
-        int maxItemCount,
+        int? maxItemCount,
         IReadOnlyList<KeysetCursorValue>? after = null)
         => Create(query.GetQueryText(), query.GetCslParameters().ToDictionary(p => p.Key, p => p.Value),
             columns, maxItemCount, after);
@@ -18,11 +18,14 @@ internal static class KeysetQueryBuilder
         string queryText,
         IReadOnlyDictionary<string, string> parameters,
         IReadOnlyList<KustoOrder.Column> columns,
-        int maxItemCount,
+        int? maxItemCount,
         IReadOnlyList<KeysetCursorValue>? after = null)
     {
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxItemCount);
-        ArgumentOutOfRangeException.ThrowIfEqual(maxItemCount, int.MaxValue);
+        if (maxItemCount is { } count)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(count);
+            ArgumentOutOfRangeException.ThrowIfEqual(count, int.MaxValue);
+        }
 
         var text = queryText.TrimEnd(' ', '\r', '\n', '\t', ';');
         var properties = new ClientRequestProperties(null, parameters)
@@ -92,9 +95,13 @@ internal static class KeysetQueryBuilder
 
         builder.Append("\n| order by ")
             .AppendJoin(", ", columns.Select((column, i) =>
-                $"{names[i]} {(column.Descending ? "desc" : "asc")} nulls last"))
-            .Append("\n| take ")
-            .Append((maxItemCount + 1).ToString(CultureInfo.InvariantCulture));
+                $"{names[i]} {(column.Descending ? "desc" : "asc")} nulls last"));
+
+        if (maxItemCount is { } pageSize)
+        {
+            builder.Append("\n| take ")
+                .Append((pageSize + 1).ToString(CultureInfo.InvariantCulture));
+        }
 
         return new(builder.ToString(), properties);
     }

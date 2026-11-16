@@ -18,6 +18,17 @@ public class KeysetQueryBuilderTests
     ];
 
     [Fact]
+    public void Null_Page_Size_Preserves_Ordering_Without_Adding_A_Limit()
+    {
+        var result = KeysetQueryBuilder.Create(new Query("test"), Columns, null);
+
+        result.Text.Should().Be(
+            "declare query_parameters (filter:string);\nEvents | where category == filter\n"
+            + "| order by [\"startedAt\"] desc nulls last, [\"sessionId\"] asc nulls last");
+        result.Properties.Parameters.Should().ContainKey("filter").WhoseValue.Should().Be("\"test\"");
+    }
+
+    [Fact]
     public void First_Page_Wraps_The_Existing_Query_With_Stable_Order_And_Lookahead()
     {
         var query = new Query("test");

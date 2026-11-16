@@ -57,13 +57,24 @@ public class KustoProcessor(
         StoredResultPagination pagination,
         CancellationToken cancellationToken)
     {
+        if (pagination.MaxItemCount is not { } maxItemCount)
+        {
+            IReadOnlyList<T> items = await ExecuteAsync(query, cancellationToken) ?? [];
+            return new PagedResult<T>(
+                Items: items,
+                ContinuationToken: null,
+                TotalCount: pagination.IncludeTotalCount ? items.Count : null);
+        }
+
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxItemCount);
+
         try
         {
             return await factory
                 .Create(
                     query,
                     pagination.SessionId,
-                    pagination.MaxItemCount,
+                    maxItemCount,
                     pagination.ContinuationToken,
                     ConnectionName,
                     DatabaseName,
@@ -106,39 +117,28 @@ public class KustoProcessor(
         CancellationToken cancellationToken)
         => ExecuteAsync(
             query,
-            sessionId,
-            maxItemCount,
-            continuationToken,
-            includeTotalCount: false,
+            new StoredResultPagination(
+                sessionId,
+                maxItemCount,
+                continuationToken),
             cancellationToken);
 
     [Obsolete("Use the ExecuteAsync overload accepting StoredResultPagination instead.", error: false)]
-    public async Task<PagedResult<T>?> ExecuteAsync<T>(
+    public Task<PagedResult<T>?> ExecuteAsync<T>(
         IKustoQuery<IReadOnlyList<T>> query,
         string? sessionId,
         int? maxItemCount,
         string? continuationToken,
         bool includeTotalCount,
         CancellationToken cancellationToken)
-    {
-        if (maxItemCount is { } count)
-        {
-            return await ExecuteAsync(
-                query,
-                new StoredResultPagination(
-                    sessionId,
-                    count,
-                    continuationToken,
-                    includeTotalCount),
-                cancellationToken);
-        }
-
-        IReadOnlyList<T> items = await ExecuteAsync(query, cancellationToken) ?? [];
-        return new PagedResult<T>(
-            Items: items,
-            ContinuationToken: null,
-            TotalCount: includeTotalCount ? items.Count : null);
-    }
+        => ExecuteAsync(
+            query,
+            new StoredResultPagination(
+                sessionId,
+                maxItemCount,
+                continuationToken,
+                includeTotalCount),
+            cancellationToken);
 
     public IAsyncEnumerable<T> ExecuteAsync<T>(
         IKustoStreamQuery<T> query,

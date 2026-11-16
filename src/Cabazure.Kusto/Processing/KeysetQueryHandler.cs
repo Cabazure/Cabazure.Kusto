@@ -17,6 +17,11 @@ internal sealed class KeysetQueryHandler<T>(
     {
         cancellationToken.ThrowIfCancellationRequested();
 
+        if (pagination.MaxItemCount is null && pagination.ContinuationToken is not null)
+        {
+            return null;
+        }
+
         var queryText = query.GetQueryText();
         var parameters = query.GetCslParameters().ToDictionary(p => p.Key, p => p.Value);
         var columns = pagination.Order.ResolveColumns(serializerOptions);
@@ -48,7 +53,14 @@ internal sealed class KeysetQueryHandler<T>(
             cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
 
-        var pageReader = new KeysetPageReader(reader, columns, pagination.MaxItemCount);
+        if (pagination.MaxItemCount is not { } maxItemCount)
+        {
+            var unpagedItems = query.ReadResult(reader, serializerOptions);
+            cancellationToken.ThrowIfCancellationRequested();
+            return unpagedItems is null ? null : new(unpagedItems, null);
+        }
+
+        var pageReader = new KeysetPageReader(reader, columns, maxItemCount);
         var items = query.ReadResult(pageReader, serializerOptions);
         cancellationToken.ThrowIfCancellationRequested();
 

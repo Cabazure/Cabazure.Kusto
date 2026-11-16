@@ -524,6 +524,67 @@ public class KustoProcessorTests
     }
 
     [Theory, AutoNSubstituteData]
+    public async Task ExecuteAsync_Unpaged_StoredResult_Request_Translates_Cancellation(
+        [Frozen] IScriptHandlerFactory factory,
+        [Modest] KustoProcessor sut,
+        IKustoQuery<IReadOnlyList<T>> query,
+        IScriptHandler<IReadOnlyList<T>> handler)
+    {
+        using var cts = CreateCanceledTokenSource();
+        var exception = new KustoClientRequestCanceledByUserException();
+        factory.Create(query, sut.ConnectionName, sut.DatabaseName).Returns(handler);
+        handler.ExecuteAsync(cts.Token).ThrowsAsync(exception);
+
+        await ShouldBeTranslated(
+            () => sut.ExecuteAsync(query, new StoredResultPagination(null, null), cts.Token),
+            exception, cts.Token);
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task ExecuteAsync_Null_StoredResult_Page_Size_Uses_Ordinary_Execution(
+        bool includeTotalCount,
+        bool emptyResult)
+    {
+        var factory = Substitute.For<IScriptHandlerFactory>();
+        var handler = Substitute.For<IScriptHandler<IReadOnlyList<T>>>();
+        var query = Substitute.For<IKustoQuery<IReadOnlyList<T>>>();
+        var sut = new KustoProcessor(factory, "connection", "database");
+        T[] items = [new T(), new T()];
+        using var cts = new CancellationTokenSource();
+        factory.Create(query, "connection", "database").Returns(handler);
+        handler.ExecuteAsync(cts.Token).Returns(emptyResult ? null : items);
+        var pagination = new StoredResultPagination("session", null, "ignored", includeTotalCount);
+
+        var result = await sut.ExecuteAsync(query, pagination, cts.Token);
+
+        result!.Items.Should().Equal(emptyResult ? [] : items);
+        result.ContinuationToken.Should().BeNull();
+        result.TotalCount.Should().Be(includeTotalCount ? (emptyResult ? 0 : items.Length) : null);
+        _ = factory.Received(1).Create(query, "connection", "database");
+        _ = handler.Received(1).ExecuteAsync(cts.Token);
+        _ = factory.DidNotReceiveWithAnyArgs().Create<T>(default!, default, default, default, default, default, default);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public async Task ExecuteAsync_StoredResult_Request_Rejects_Nonpositive_Page_Sizes(int pageSize)
+    {
+        var factory = Substitute.For<IScriptHandlerFactory>();
+        var sut = new KustoProcessor(factory, null, null);
+        var query = Substitute.For<IKustoQuery<IReadOnlyList<T>>>();
+
+        var execute = () => sut.ExecuteAsync(
+            query, new StoredResultPagination(null, pageSize), CancellationToken.None);
+
+        await execute.Should().ThrowAsync<ArgumentOutOfRangeException>();
+        _ = factory.DidNotReceiveWithAnyArgs().Create<T>(default!, default, default, default, default, default, default);
+    }
+
+    [Theory, AutoNSubstituteData]
     public async Task ExecuteAsync_Translates_StoredResult_Request_Cancellation(
         [Frozen] IScriptHandlerFactory factory,
         [Modest] KustoProcessor sut,
