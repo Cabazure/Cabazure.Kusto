@@ -61,6 +61,18 @@ Applications using queries derived from `KustoQuery<T>` or `StreamKustoQuery<T>`
 
 `AddIngestion<T>()` remains connection-independent: injected ingesters use the default connection/database, while `IKustoIngesterFactory` selects named connection or database overrides.
 
+## Debugging NuGet packages
+
+Both libraries produce separate `.snupkg` symbol packages containing portable PDBs. Stable and preview releases publish these alongside the NuGet packages. Symbols are not embedded in the DLLs or included in the main `.nupkg`. Source Link lets the debugger retrieve source files from the exact GitHub commit used to build the package.
+
+In Visual Studio, under **Tools > Options > Debugging**:
+
+- Enable the **NuGet.org Symbol Server** under **Symbols**, or add `https://symbols.nuget.org/download/symbols`.
+- Enable **Source Link support** under **General**.
+- Disable **Just My Code** to step into library code.
+
+The debugger can then download matching symbols and source on demand without a local clone. If stepping into a library still fails, inspect its symbol load information in **Debug > Windows > Modules**. Release builds are optimized, so some locals or source stepping may be unavailable.
+
 ## Getting started
 
 ### 1. Configuring the Cabazure.Kusto library
