@@ -91,12 +91,14 @@ public class KustoProcessorTests
         string continuationToken,
         CancellationToken cancellationToken)
     {
+#pragma warning disable CS0618 // Exercise the legacy overload for backward compatibility.
         await sut.ExecuteAsync(
             query,
             sessionId,
             maxItemCount,
             continuationToken,
             cancellationToken);
+#pragma warning restore CS0618
 
         _ = factory
             .Received(1)
@@ -119,6 +121,7 @@ public class KustoProcessorTests
         string continuationToken,
         CancellationToken cancellationToken)
     {
+#pragma warning disable CS0618 // Exercise the legacy overload for backward compatibility.
         await sut.ExecuteAsync(
             query,
             sessionId,
@@ -126,6 +129,7 @@ public class KustoProcessorTests
             continuationToken,
             includeTotalCount: true,
             cancellationToken);
+#pragma warning restore CS0618
 
         _ = factory
             .Received(1)
@@ -155,6 +159,7 @@ public class KustoProcessorTests
             .ExecuteAsync(cancellationToken)
             .Returns(queryResult);
 
+#pragma warning disable CS0618 // Exercise the legacy overload for backward compatibility.
         var result = await sut.ExecuteAsync(
             query,
             sessionId: null,
@@ -162,6 +167,7 @@ public class KustoProcessorTests
             continuationToken: null,
             includeTotalCount: true,
             cancellationToken);
+#pragma warning restore CS0618
 
         result!.Items
             .Should()
@@ -194,12 +200,14 @@ public class KustoProcessorTests
             .ExecuteAsync(cancellationToken)
             .Returns(queryResult);
 
+#pragma warning disable CS0618 // Exercise the legacy overload for backward compatibility.
         var result = await sut.ExecuteAsync(
             query,
             sessionId,
             maxItemCount,
             continuationToken,
             cancellationToken);
+#pragma warning restore CS0618
 
         result
             .Should()
@@ -310,12 +318,14 @@ public class KustoProcessorTests
             .ExecuteAsync(cts.Token)
             .ThrowsAsync(kustoException);
 
+#pragma warning disable CS0618 // Exercise the legacy overload for backward compatibility.
         var act = () => sut.ExecuteAsync(
             query,
             sessionId,
             maxItemCount,
             continuationToken,
             cts.Token);
+#pragma warning restore CS0618
 
         await ShouldBeTranslated(act, kustoException, cts.Token);
     }
@@ -511,6 +521,87 @@ public class KustoProcessorTests
 
         (await act.Should().ThrowAsync<OperationCanceledException>())
             .Which.Should().BeSameAs(canceledException);
+    }
+
+    [Theory, AutoNSubstituteData]
+    public async Task ExecuteAsync_Translates_StoredResult_Request_Cancellation(
+        [Frozen] IScriptHandlerFactory factory,
+        [Modest] KustoProcessor sut,
+        IKustoQuery<IReadOnlyList<T>> query,
+        IScriptHandler<PagedResult<T>> handler)
+    {
+        using var cts = CreateCanceledTokenSource();
+        var exception = new KustoClientRequestCanceledByUserException();
+        var pagination = new StoredResultPagination(null, 50);
+        factory.Create(query, null, 50, null, sut.ConnectionName, sut.DatabaseName, false).Returns(handler);
+        handler.ExecuteAsync(cts.Token).ThrowsAsync(exception);
+
+        await ShouldBeTranslated(() => sut.ExecuteAsync(query, pagination, cts.Token), exception, cts.Token);
+    }
+
+    [Theory]
+    [InlineData(false, "session")]
+    [InlineData(true, "session")]
+    [InlineData(false, null)]
+    public async Task ExecuteAsync_StoredResult_Request_Uses_The_Existing_Paging_Handler(
+        bool includeTotalCount,
+        string? sessionId)
+    {
+        var factory = Substitute.For<IScriptHandlerFactory>();
+        var handler = Substitute.For<IScriptHandler<PagedResult<T>>>();
+        var query = Substitute.For<IKustoQuery<IReadOnlyList<T>>>();
+        var sut = new KustoProcessor(factory, "connection", "database");
+        var pagination = includeTotalCount
+            ? new StoredResultPagination(sessionId, 50, "continuation", IncludeTotalCount: true)
+            : new StoredResultPagination(sessionId, 50, "continuation");
+        var expected = new PagedResult<T>([new T()], "next", includeTotalCount ? 100 : null);
+        using var cts = new CancellationTokenSource();
+        factory.Create(query, sessionId, 50, "continuation", "connection", "database", includeTotalCount)
+            .Returns(handler);
+        handler.ExecuteAsync(cts.Token).Returns(expected);
+
+        var result = await sut.ExecuteAsync(query, pagination, cts.Token);
+
+        result.Should().BeSameAs(expected);
+        _ = factory.Received(1).Create(query, sessionId, 50, "continuation", "connection", "database", includeTotalCount);
+        _ = handler.Received(1).ExecuteAsync(cts.Token);
+        _ = factory.DidNotReceiveWithAnyArgs().CreateKeyset<T>(default!, default!, default, default);
+    }
+
+    [Theory, AutoNSubstituteData]
+    public async Task ExecuteAsync_Routes_Keyset_Pagination_With_Connection_Database_And_Cancellation(
+        [Frozen] IScriptHandlerFactory factory,
+        [Greedy] KustoProcessor sut,
+        IKustoQuery<IReadOnlyList<T>> query,
+        IScriptHandler<PagedResult<T>> handler,
+        PagedResult<T> expected,
+        CancellationToken cancellationToken)
+    {
+        var pagination = new KeysetPagination(KustoOrder.Ascending("id"), 50);
+        factory.CreateKeyset(query, pagination, sut.ConnectionName, sut.DatabaseName).Returns(handler);
+        handler.ExecuteAsync(cancellationToken).Returns(expected);
+
+        var result = await sut.ExecuteAsync(query, pagination, cancellationToken);
+
+        result.Should().BeSameAs(expected);
+        _ = factory.Received(1).CreateKeyset(query, pagination, sut.ConnectionName, sut.DatabaseName);
+        _ = handler.Received(1).ExecuteAsync(cancellationToken);
+    }
+
+    [Theory, AutoNSubstituteData]
+    public async Task ExecuteAsync_Translates_Keyset_Cancellation_Exceptions(
+        [Frozen] IScriptHandlerFactory factory,
+        [Modest] KustoProcessor sut,
+        IKustoQuery<IReadOnlyList<T>> query,
+        IScriptHandler<PagedResult<T>> handler)
+    {
+        using var cts = CreateCanceledTokenSource();
+        var exception = new KustoClientRequestCanceledByUserException();
+        var pagination = new KeysetPagination(KustoOrder.Ascending("id"), 50);
+        factory.CreateKeyset(query, pagination, sut.ConnectionName, sut.DatabaseName).Returns(handler);
+        handler.ExecuteAsync(cts.Token).ThrowsAsync(exception);
+
+        await ShouldBeTranslated(() => sut.ExecuteAsync(query, pagination, cts.Token), exception, cts.Token);
     }
 
     private static CancellationTokenSource CreateCanceledTokenSource()

@@ -52,6 +52,52 @@ public class KustoProcessor(
         }
     }
 
+    public async Task<PagedResult<T>?> ExecuteAsync<T>(
+        IKustoQuery<IReadOnlyList<T>> query,
+        StoredResultPagination pagination,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await factory
+                .Create(
+                    query,
+                    pagination.SessionId,
+                    pagination.MaxItemCount,
+                    pagination.ContinuationToken,
+                    ConnectionName,
+                    DatabaseName,
+                    pagination.IncludeTotalCount)
+                .ExecuteAsync(cancellationToken);
+        }
+        catch (Exception ex) when (ex.IsCanceledBy(cancellationToken))
+        {
+            throw ex.ToOperationCanceled(cancellationToken);
+        }
+    }
+
+    public async Task<PagedResult<T>?> ExecuteAsync<T>(
+        IKustoQuery<IReadOnlyList<T>> query,
+        KeysetPagination pagination,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await factory
+                .CreateKeyset(
+                    query,
+                    pagination,
+                    ConnectionName,
+                    DatabaseName)
+                .ExecuteAsync(cancellationToken);
+        }
+        catch (Exception ex) when (ex.IsCanceledBy(cancellationToken))
+        {
+            throw ex.ToOperationCanceled(cancellationToken);
+        }
+    }
+
+    [Obsolete("Use the ExecuteAsync overload accepting StoredResultPagination instead.", error: false)]
     public Task<PagedResult<T>?> ExecuteAsync<T>(
         IKustoQuery<IReadOnlyList<T>> query,
         string? sessionId,
@@ -66,6 +112,7 @@ public class KustoProcessor(
             includeTotalCount: false,
             cancellationToken);
 
+    [Obsolete("Use the ExecuteAsync overload accepting StoredResultPagination instead.", error: false)]
     public async Task<PagedResult<T>?> ExecuteAsync<T>(
         IKustoQuery<IReadOnlyList<T>> query,
         string? sessionId,
@@ -76,23 +123,14 @@ public class KustoProcessor(
     {
         if (maxItemCount is { } count)
         {
-            try
-            {
-                return await factory
-                    .Create(
-                        query,
-                        sessionId,
-                        count,
-                        continuationToken,
-                        ConnectionName,
-                        DatabaseName,
-                        includeTotalCount)
-                    .ExecuteAsync(cancellationToken);
-            }
-            catch (Exception ex) when (ex.IsCanceledBy(cancellationToken))
-            {
-                throw ex.ToOperationCanceled(cancellationToken);
-            }
+            return await ExecuteAsync(
+                query,
+                new StoredResultPagination(
+                    sessionId,
+                    count,
+                    continuationToken,
+                    includeTotalCount),
+                cancellationToken);
         }
 
         IReadOnlyList<T> items = await ExecuteAsync(query, cancellationToken) ?? [];

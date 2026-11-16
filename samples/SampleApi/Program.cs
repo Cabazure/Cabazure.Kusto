@@ -1,6 +1,7 @@
 using Azure.Identity;
 using Cabazure.Kusto;
 using Microsoft.AspNetCore.Mvc;
+using SampleApi.Contracts;
 using SampleApi.Queries;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -9,7 +10,8 @@ builder.Services.AddCabazureKusto(b => b
     .Configure(o => o
         .WithHostAddress("https://help.kusto.windows.net/")
         .WithDatabaseName("ContosoSales")
-        .WithCredential(new DefaultAzureCredential())));
+        .WithCredential(new DefaultAzureCredential())
+        .ConfigureSerializerOptions(json => json.PropertyNamingPolicy = null)));
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -35,12 +37,33 @@ app.MapGet(
         CancellationToken cancellationToken)
         => await processor.ExecuteAsync(
             new CustomersQuery(),
-            sessionId,
-            maxItemCount ?? 100,
-            continuationToken,
-            includeTotalCount ?? false,
+            new StoredResultPagination(
+                SessionId: sessionId,
+                MaxItemCount: maxItemCount ?? 100,
+                ContinuationToken: continuationToken,
+                IncludeTotalCount: includeTotalCount ?? false),
             cancellationToken))
     .WithName("ListCustomers");
+
+app.MapGet(
+    "/customers/keyset",
+    async static (
+        [FromHeader(Name = "x-max-item-count")] int? maxItemCount,
+        [FromHeader(Name = "x-continuation-token")] string? continuationToken,
+        IKustoProcessor processor,
+        CancellationToken cancellationToken)
+        => await processor.ExecuteAsync(
+            new CustomersQuery(),
+            new KeysetPagination(
+                KustoOrder<Customer>.Ascending(c => c.CustomerKey),
+                maxItemCount ?? 100,
+                continuationToken),
+            cancellationToken) switch
+        {
+            { } result => Results.Ok(result),
+            _ => Results.BadRequest("Invalid continuation token."),
+        })
+    .WithName("ListCustomersKeyset");
 
 app.MapGet(
     "/customers/{customerId}",

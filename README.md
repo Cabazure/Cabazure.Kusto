@@ -203,7 +203,11 @@ When the `CancellationToken` passed to `IKustoProcessor` is canceled, the proces
 
 Exceptions are only translated when the token was canceled. A `KustoClientRequestCanceledByUserException` raised for other reasons, such as a `.cancel query` command, is passed through unchanged.
 
-The processor can also perform pagination by using the `ExecuteAsync` overload, taking in a session id, a continuation token and a max item count, like this:
+The processor offers `ExecuteAsync` overloads with `StoredResultPagination` for snapshot paging and `KeysetPagination` for live-data paging. Both return `PagedResult<T>`. The two argument-based stored-result overloads are obsolete with a compiler warning; use `StoredResultPagination` instead. They remain available with unchanged behavior, forwarding paged execution to the request-based overload. For unpaged execution (previously a null `maxItemCount`), use the ordinary query overload.
+
+#### Stored-result pagination
+
+Use `StoredResultPagination` to execute and store the complete matching result, then read pages from that snapshot:
 
 ```csharp
 app.MapGet(
@@ -216,9 +220,10 @@ app.MapGet(
     => processor
       .ExecuteAsync(
         new CustomerQuery("type"),
-        sessionId,
-        maxItemCount,
-        continuationToken,
+        new StoredResultPagination(
+          SessionId: sessionId,
+          MaxItemCount: maxItemCount ?? 100,
+          ContinuationToken: continuation),
         cancellationToken));
 ```
 
@@ -253,15 +258,16 @@ A continuation token can still be used after its stored result has expired, or a
 
 #### Total count
 
-To also get the total number of items across all pages, use the overload that takes an `includeTotalCount` flag:
+To also get the total number of items across all pages, set `IncludeTotalCount` on the stored-result request:
 
 ```csharp
 var result = await processor.ExecuteAsync(
   new CustomerQuery("type"),
-  sessionId,
-  maxItemCount,
-  continuationToken,
-  includeTotalCount: true,
+  new StoredResultPagination(
+    SessionId: sessionId,
+    MaxItemCount: 100,
+    ContinuationToken: continuationToken,
+    IncludeTotalCount: true),
   cancellationToken);
 
 long? total = result?.TotalCount;
@@ -270,6 +276,58 @@ long? total = result?.TotalCount;
 The total count is opt-in. When you don't request it, `TotalCount` is `null` and paging works exactly as before, with no extra cost.
 
 When you request it, the total is fetched once on the first page by running `.show stored_query_results`. This call reads the stored result's metadata and doesn't rerun your query. It is skipped when the first page isn't full, because the item count is then the total. The total is included in the continuation token, so later pages need no extra calls. Paging also stops as soon as the total is reached.
+
+#### Keyset pagination
+
+Use the `ExecuteAsync` overload with `KeysetPagination` to page through live query results without creating stored query results:
+
+```csharp
+var result = await processor.ExecuteAsync(
+  query,
+  new KeysetPagination(
+    Order: KustoOrder<ChargingSession>
+      .Descending(s => s.StartedAt)
+      .ThenAscending(s => s.SessionId),
+    MaxItemCount: 50,
+    ContinuationToken: continuationToken),
+  cancellationToken);
+```
+
+The same query remains usable with ordinary execution and stored-result pagination. Keyset pages return `PagedResult<T>` with `TotalCount` always `null`; there is no total-count option. Pass back the continuation token unchanged with the same query, filters, ordering and execution scope. Invalid or mismatched tokens return `null` without executing the query. A null continuation token starts a new first page. Page sizes must be positive and smaller than `int.MaxValue`.
+
+Custom implementations of `IKustoProcessor` must implement the new request-based pagination overloads. Custom implementations of `IScriptHandlerFactory` must implement `CreateKeyset`. Custom `IQueryIdProvider` implementations must implement the fingerprint overload accepting the original query type, query text and serialized parameters. Keyset execution captures those inputs once and reuses them for cursor binding and query generation. Custom `IKustoClientProvider` implementations must implement `GetQueryClientContext`, returning the executing client with its actual data source and database, not identities reconstructed from current options. Existing library-managed execution and argument-based stored-result behavior is unchanged.
+
+Define an immutable ordering using projected Kusto column names:
+
+```csharp
+var order = KustoOrder
+  .Descending("startedAt")
+  .ThenAscending("sessionId");
+```
+
+The typed helper builds the same definition using direct result-property selectors:
+
+```csharp
+var order = KustoOrder<ChargingSession>
+  .Descending(s => s.StartedAt)
+  .ThenAscending(s => s.SessionId);
+```
+
+Typed column names are resolved using the executing connection's JSON naming policy and `[JsonPropertyName]` attributes. Supply `columnName: "sessionStartedAt"` when the projected Kusto column needs an explicit name. Column-string definitions are used unchanged.
+
+Column names must match the actual Kusto projection, including casing. The sample disables the naming policy (`PropertyNamingPolicy = null`) to preserve CLR property names, so its typed ordering matches the original `CustomerKey` projection without an override.
+
+Selectors must select a readable property directly; nested properties, fields, method calls and computed expressions are not translated into KQL. Include enough keys to identify each result row uniquely, such as a session ID after its start time. Repeating a resolved column is rejected.
+
+Keyset query generation appends a lexicographic seek predicate, an explicit ordering with nulls last in either direction, and a limit of page size plus one. It requires a script with one final tabular result that projects every ordering column. It does not create stored results or calculate a total count.
+
+Result mapping uses the query's existing `ReadResult` method and the executing connection's serializer options. Custom mapping must consume the page and preserve one item per row in the original order. The look-ahead row is not passed to mapping. Cursor values come from the last returned raw row, not from mapped DTOs, so nullable-string normalization and decimal rounding do not change pagination boundaries.
+
+Each page reruns the query against live data. Inserts, deletions or changes to ordering keys can change what subsequent pages contain. Unlike stored-result pagination, keyset paging does not provide a reusable snapshot. Expensive joins still run on every page unless the query itself is optimized.
+
+The library caches query clients and their destination metadata per connection and database. Changing connection options does not retarget an existing cached client or relabel its cursors. Keyset requests explicitly use the database retained with that client. A new provider targeting another cluster or database rejects cursors from the original destination.
+
+Cursors preserve raw scalar values, including datetime ticks and ADX decimal precision. Supported key types are string, bool, int, long, finite real, decimal, datetime and timespan, including nulls. GUID and dynamic keys are not supported. Cursor parameters are bound separately from the query text, and projected column names are quoted. Continuation tokens are versioned, limited to 64 KiB and bound to the query fingerprint, resolved ordering, connection scope and database. Tokens are opaque cursors, not signed credentials or snapshots; authorization and data-scoping filters must still be enforced on every request.
 
 ### Streaming queries
 

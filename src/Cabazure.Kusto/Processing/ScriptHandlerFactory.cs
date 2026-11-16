@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.Extensions.Options;
 
 namespace Cabazure.Kusto.Processing;
@@ -39,6 +40,30 @@ public class ScriptHandlerFactory(
                 databaseName),
             query,
             GetOptions(connectionName).SerializerOptions);
+
+    public IScriptHandler<PagedResult<T>> CreateKeyset<T>(
+        IKustoQuery<IReadOnlyList<T>> query,
+        KeysetPagination pagination,
+        string? connectionName = null,
+        string? databaseName = null)
+    {
+        var options = GetOptions(connectionName);
+        var context = clientProvider.GetQueryClientContext(connectionName, databaseName);
+        var scope = JsonSerializer.Serialize(new[]
+        {
+            connectionName ?? Options.DefaultName,
+            context.DataSource,
+        });
+
+        return new KeysetQueryHandler<T>(
+            queryIdProvider,
+            context.Client,
+            query,
+            pagination,
+            options.SerializerOptions,
+            scope,
+            context.DatabaseName);
+    }
 
     public IScriptHandler<PagedResult<T>> Create<T>(
         IKustoQuery<IReadOnlyList<T>> query,

@@ -12,11 +12,23 @@ public interface IKustoProcessor
 
     Task<PagedResult<T>?> ExecuteAsync<T>(
         IKustoQuery<IReadOnlyList<T>> query,
+        StoredResultPagination pagination,
+        CancellationToken cancellationToken);
+
+    Task<PagedResult<T>?> ExecuteAsync<T>(
+        IKustoQuery<IReadOnlyList<T>> query,
+        KeysetPagination pagination,
+        CancellationToken cancellationToken);
+
+    [Obsolete("Use the ExecuteAsync overload accepting StoredResultPagination instead.", error: false)]
+    Task<PagedResult<T>?> ExecuteAsync<T>(
+        IKustoQuery<IReadOnlyList<T>> query,
         string? sessionId,
         int? maxItemCount,
         string? continuationToken,
         CancellationToken cancellationToken);
 
+    [Obsolete("Use the ExecuteAsync overload accepting StoredResultPagination instead.", error: false)]
     Task<PagedResult<T>?> ExecuteAsync<T>(
         IKustoQuery<IReadOnlyList<T>> query,
         string? sessionId,

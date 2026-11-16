@@ -11,4 +11,8 @@ public interface IKustoClientProvider
     ICslQueryProvider GetQueryClient(
         string? connectionName = null,
         string? databaseName = null);
+
+    KustoQueryClientContext GetQueryClientContext(
+        string? connectionName = null,
+        string? databaseName = null);
 }

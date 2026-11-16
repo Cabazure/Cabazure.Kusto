@@ -65,6 +65,17 @@ public class QueryIdProviderTests
             .MatchRegex("^[a-f0-9]{32}$");
 
     [Fact]
+    public void CreateFingerprint_From_Captured_Inputs_Matches_The_Original_Query()
+    {
+        var query = new SampleQuery("a");
+        var parameters = query.GetCslParameters().ToDictionary(p => p.Key, p => p.Value);
+
+        sut.CreateFingerprint(query.GetType(), query.GetQueryText(), parameters)
+            .Should().Be(sut.CreateFingerprint(query))
+            .And.NotBe(sut.CreateFingerprint(typeof(OtherQuery), query.GetQueryText(), parameters));
+    }
+
+    [Fact]
     public void CreateFingerprint_Differs_For_Different_Parameters()
         => sut.CreateFingerprint(new SampleQuery("a"))
             .Should()

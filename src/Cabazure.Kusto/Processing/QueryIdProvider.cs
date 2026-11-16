@@ -22,16 +22,23 @@ public class QueryIdProvider : IQueryIdProvider
 
     public string CreateFingerprint(
         IKustoScript query)
+        => CreateFingerprint(
+            query.GetType(),
+            query.GetQueryText(),
+            query.GetCslParameters());
+
+    public string CreateFingerprint(
+        Type queryType,
+        string queryText,
+        IEnumerable<KeyValuePair<string, string>> parameters)
     {
         var values = new List<string?>
         {
-            query.GetType().FullName,
-            query.GetQueryText(),
+            queryType.FullName,
+            queryText,
         };
 
-        foreach (var parameter in query
-            .GetCslParameters()
-            .OrderBy(p => p.Key, StringComparer.Ordinal))
+        foreach (var parameter in parameters.OrderBy(p => p.Key, StringComparer.Ordinal))
         {
             values.Add(parameter.Key);
             values.Add(parameter.Value);
