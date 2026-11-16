@@ -34,6 +34,47 @@ public class KustoOrderTests
     }
 
     [Fact]
+    public void Reverse_Flips_All_Directions_Without_Changing_Key_Precedence_Or_The_Original()
+    {
+        var original = KustoOrder.Descending("startedAt").ThenAscending("sessionId");
+        var reversed = original.Reverse();
+        var options = new JsonSerializerOptions();
+
+        original.ResolveColumns(options)
+            .Select(c => (c.Name, c.Descending))
+            .Should().Equal(("startedAt", true), ("sessionId", false));
+        reversed.ResolveColumns(options)
+            .Select(c => (c.Name, c.Descending))
+            .Should().Equal(("startedAt", false), ("sessionId", true));
+        reversed.Reverse().ResolveColumns(options).Should().Equal(original.ResolveColumns(options));
+        original.Reverse(false).Should().BeSameAs(original);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Typed_Reverse_Preserves_Property_Mapping_And_Allows_Subsequent_Typed_Keys(bool reverse)
+    {
+        var original = KustoOrder<Row>
+            .Descending(r => r.StartedAt, columnName: "sessionStartedAt")
+            .ThenAscending(r => r.ExternalId);
+        var reversed = original.Reverse(reverse);
+        var extended = reversed.ThenAscending(r => r.SessionId);
+        var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+
+        original.ResolveColumns(options)
+            .Select(c => (c.Name, c.Descending))
+            .Should().Equal(("sessionStartedAt", true), ("external_id", false));
+        extended.ResolveColumns(options)
+            .Select(c => (c.Name, c.Descending))
+            .Should().Equal(("sessionStartedAt", !reverse), ("external_id", reverse), ("sessionId", false));
+        reversed.ResolveColumns(options).Should().HaveCount(2);
+        reversed.Reverse(reverse).ResolveColumns(options).Should().Equal(original.ResolveColumns(options));
+        ((KustoOrder)original).Reverse(reverse).ResolveColumns(options)
+            .Should().Equal(reversed.ResolveColumns(options));
+    }
+
+    [Fact]
     public void Typed_Order_Uses_The_Same_Definition_As_Column_Order()
     {
         KustoOrder typed = KustoOrder<Row>

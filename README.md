@@ -315,6 +315,17 @@ var order = KustoOrder<ChargingSession>
 
 Typed column names are resolved using the executing connection's JSON naming policy and `[JsonPropertyName]` attributes. Supply `columnName: "sessionStartedAt"` when the projected Kusto column needs an explicit name. Column-string definitions are used unchanged.
 
+Use `Reverse(bool reverse = true)` on either ordering type to flip every existing key's direction without changing key precedence or the original definition:
+
+```csharp
+var order = KustoOrder<ChargingSession>
+  .Descending(s => s.StartedAt)
+  .ThenAscending(s => s.SessionId)
+  .Reverse(reverse: newestToOldest is false);
+```
+
+`Reverse(false)` leaves the definition unchanged. Call `Reverse()` last to reverse the whole ordering; keys appended afterward keep their specified directions. Nulls remain last in either direction. Changing the effective ordering requires restarting pagination rather than reusing an existing continuation token.
+
 Column names must match the actual Kusto projection, including casing. The sample disables the naming policy (`PropertyNamingPolicy = null`) to preserve CLR property names, so its typed ordering matches the original `CustomerKey` projection without an override.
 
 Selectors must select a readable property directly; nested properties, fields, method calls and computed expressions are not translated into KQL. Include enough keys to identify each result row uniquely, such as a session ID after its start time. Repeating a resolved column is rejected.

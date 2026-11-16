@@ -26,6 +26,11 @@ public class KustoOrder
     public KustoOrder ThenDescending(string columnName)
         => new(Keys.Add(CreateKey(columnName, descending: true)));
 
+    public virtual KustoOrder Reverse(bool reverse = true)
+        => reverse
+            ? new([.. Keys.Select(key => key with { Descending = !key.Descending })])
+            : this;
+
     internal ImmutableArray<Column> ResolveColumns(JsonSerializerOptions options)
     {
         var columns = ImmutableArray.CreateBuilder<Column>(Keys.Length);
